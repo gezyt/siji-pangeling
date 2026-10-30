@@ -60,6 +60,30 @@ hasil cari, seperti `/api/cari` lama):
 API tulis untuk modul baru BELUM dibuka; pengisian modul baru lewat
 skrip impor / panel admin fase berikut, bukan lewat endpoint publik.
 
+## Frontend per modul (fase 3)
+
+Satu halaman `public/index.html` dengan tab per modul, bukan lagi
+daftar generik dari tabel `konten`:
+
+- Tab **Al-Qur'an** (default): daftar ayat terpaginasi, dropdown
+  surah dari `GET /api/surah` (114 surah + jumlah ayat), cari dalam
+  modul, tombol **Tafsir & per kata** di tiap kartu yang membuka
+  detail dari `GET /api/ayat?surah=&ayat=` — saat ini tafsir dan
+  kata masih kosong, jadi detail menampilkan catatan bahwa keduanya
+  menyusul pada fase tafsir.
+- Tab **Hadits**: kartu kitab, nomor, perawi, status sanad, matan
+  Arab + terjemahan. Saat ini kosong dengan penjelasan bahwa isinya
+  menunggu sumber terverifikasi.
+- Tab **Siroh**: kartu timeline (tahun Hijriah/Masehi, tempat,
+  peristiwa, hikmah). Saat ini kosong dengan penjelasan serupa.
+- Tab **Artikel**: kartu judul, isi, dalil, kategori. Saat ini
+  kosong dengan penjelasan serupa.
+- Setiap tab menampilkan hitungan modul dari `GET /api/modul`
+  (saat ini Al-Qur'an 6236, sisanya 0) dan tombol Salin per kartu,
+  responsif HP seperti sebelumnya. API lama `/api/konten` dan
+  `/api/cari` tetap jalan di backend, hanya tidak lagi dipakai
+  frontend.
+
 ## Migrasi ayat ke tabel per modul
 
 Migrasi mem-parse judul `QS surah:ayat — NamaSurah` dan memecah isi

@@ -1,6 +1,6 @@
 import {
   db, cari, listKonten, hitungKonten, daftarJenis,
-  listAyat, hitungAyat, getAyat, cariAyat,
+  listAyat, hitungAyat, getAyat, cariAyat, daftarSurah,
   listHadits, hitungHadits, cariHadits,
   listSiroh, hitungSiroh, cariSiroh,
   listArtikel, hitungArtikel, cariArtikel, cariSemua,
@@ -136,6 +136,10 @@ Bun.serve({
     // API baru per modul (baca saja). Tanpa ?q= mengembalikan halaman
     // {data,total,limit,offset}; dengan ?q= mengembalikan array hasil
     // cari, sama seperti /api/cari lama.
+    if (url.pathname === "/api/surah" && req.method === "GET") {
+      return json(daftarSurah());
+    }
+
     if (url.pathname === "/api/ayat" && req.method === "GET") {
       const { limit, offset } = ambilLimitOffset(url);
       const surah = ambilSurah(url);

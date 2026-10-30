@@ -454,6 +454,14 @@ function cariModul(
   return gabung.slice(off, off + lim);
 }
 
+export function daftarSurah() {
+  return db
+    .query(
+      "SELECT surah_no, surah_nama, COUNT(*) AS jumlah FROM ayat GROUP BY surah_no, surah_nama ORDER BY surah_no ASC"
+    )
+    .all();
+}
+
 export function hitungAyat(surah?: number): number {
   return surah
     ? hitung("SELECT COUNT(*) AS n FROM ayat WHERE surah_no = ?", [surah])
