@@ -23,6 +23,58 @@ otomatis saat pertama jalan (kosong sampai impor dijalankan).
 - `GET /api/cari?q=sabar&jenis=ayat&limit=20&offset=0` — ranking bm25 + substring (menemukan "bersyukur" dari kata "syukur")
 - `POST /api/konten` — TERKUNCI: hanya jalan bila `SIJI_ADMIN_TOKEN` disetel di server dan pemanggil mengirim header `x-admin-token` yang sama. Tanpa token, POST mengembalikan 403. Jangan menaruh token di repo.
 
+## Skema per modul (fase 2)
+
+Tabel generik `konten` DIPERTAHANKAN, jadi API lama di atas tetap
+jalan. Di sampingnya ada tabel per modul, masing-masing dengan
+FTS5 sendiri:
+
+- `ayat` — surah_no, surah_nama, ayat_no, verse_key (unik,
+  mis. `2:255`), arab, terjemahan, sumber, tag, konten_id.
+  `id` ayat = `id` baris konten asalnya, supaya bisa dilacak balik.
+- `tafsir` — ayat_id, tingkat (`ringkas`/`menengah`/`mendalam`),
+  isi, sumber. Masih kosong, untuk tafsir bertingkat fase berikut.
+- `kata` — ayat_id, urut, arab, arti. Masih kosong, untuk terjemah
+  per kata fase berikut.
+- `hadits` — kitab, no_hadits, perawi, matan_arab, matan_id,
+  status_sanad (`sahih`/`hasan`/`dhaif`/`belum-diverifikasi`),
+  kategori, sumber, tag. Masih kosong, menunggu sumber terverifikasi.
+- `siroh` — tahun_hijriah, tahun_masehi, judul, peristiwa, tempat,
+  hikmah, sumber, urutan (untuk timeline). Masih kosong.
+- `artikel` — judul, isi, kategori, dalil, sumber, tag. Untuk Islam
+  kontemporer (Q&A/artikel berdalil). Masih kosong.
+
+API baca per modul (tanpa `?q=` mengembalikan
+`{data, total, limit, offset}`; dengan `?q=` mengembalikan array
+hasil cari, seperti `/api/cari` lama):
+
+- `GET /api/modul` — hitungan tiap modul
+- `GET /api/ayat?surah=2&limit=20&offset=0` — daftar per surah
+- `GET /api/ayat?surah=2&ayat=255` — satu ayat + tafsir + kata
+- `GET /api/ayat?q=sabar` — cari ayat (bisa ditambah `&surah=2`)
+- `GET /api/hadits?kitab=&status_sanad=&q=`
+- `GET /api/siroh?q=` — urutan timeline
+- `GET /api/artikel?kategori=&q=`
+- `GET /api/cari-semua?q=sabar&limit=20` — `{ayat, hadits, siroh, artikel}`
+
+API tulis untuk modul baru BELUM dibuka; pengisian modul baru lewat
+skrip impor / panel admin fase berikut, bukan lewat endpoint publik.
+
+## Migrasi ayat ke tabel per modul
+
+Migrasi mem-parse judul `QS surah:ayat — NamaSurah` dan memecah isi
+di baris kosong menjadi arab + terjemahan, tanpa fetch ulang dari
+Quran.com. Idempotent dan tidak menghapus tabel `konten`, jadi
+gagal di tengah tidak merusak data lama. Server juga menjalankan
+migrasi ini otomatis saat start bila tabel `ayat` masih kosong —
+di VPS cukup `git pull` + restart service.
+
+```bash
+bun run migrate:modul            # migrasi + verifikasi hitungan
+bun run migrate:modul -- --reset # hapus ayat, isi ulang dari konten
+SIJI_DB=/tmp/uji.db bun run migrate:modul
+```
+
 ## Impor ayat + terjemahan (data awal)
 
 Sumber: Quran.com API v4, terjemahan resource 33 (Kemenag RI).

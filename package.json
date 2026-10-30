@@ -6,7 +6,8 @@
   "scripts": {
     "start": "bun run src/index.ts",
     "typecheck": "bun check",
-    "import:quran": "bun run scripts/import-quran.ts"
+    "import:quran": "bun run scripts/import-quran.ts",
+    "migrate:modul": "bun run scripts/migrate-per-modul.ts"
   },
   "devDependencies": {
     "@types/bun": "latest"

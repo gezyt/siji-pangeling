@@ -1,4 +1,10 @@
-import { db, cari, listKonten, hitungKonten, daftarJenis } from "./db";
+import {
+  db, cari, listKonten, hitungKonten, daftarJenis,
+  listAyat, hitungAyat, getAyat, cariAyat,
+  listHadits, hitungHadits, cariHadits,
+  listSiroh, hitungSiroh, cariSiroh,
+  listArtikel, hitungArtikel, cariArtikel, cariSemua,
+} from "./db";
 import { join, dirname, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,6 +27,28 @@ function ambilJenis(url: URL): string | undefined {
   if (!j || j === "semua") return undefined;
   if (!JENIS_RE.test(j)) return undefined;
   return j;
+}
+
+function ambilLimitOffset(url: URL) {
+  return {
+    limit: url.searchParams.get("limit") ?? "20",
+    offset: url.searchParams.get("offset") ?? "0",
+  };
+}
+
+function halaman(url: URL, data: unknown, total: number) {
+  const { limit, offset } = ambilLimitOffset(url);
+  return json({
+    data,
+    total,
+    limit: Math.min(100, Math.max(1, Number(limit) || 20)),
+    offset: Math.max(0, Number(offset) || 0),
+  });
+}
+
+function ambilSurah(url: URL): number | undefined {
+  const n = Number(url.searchParams.get("surah"));
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : undefined;
 }
 
 Bun.serve({
@@ -103,6 +131,62 @@ Bun.serve({
       return json(
         cari(q, ambilJenis(url), url.searchParams.get("limit") ?? "20", url.searchParams.get("offset") ?? "0")
       );
+    }
+
+    // API baru per modul (baca saja). Tanpa ?q= mengembalikan halaman
+    // {data,total,limit,offset}; dengan ?q= mengembalikan array hasil
+    // cari, sama seperti /api/cari lama.
+    if (url.pathname === "/api/ayat" && req.method === "GET") {
+      const { limit, offset } = ambilLimitOffset(url);
+      const surah = ambilSurah(url);
+      const ayatNo = Number(url.searchParams.get("ayat"));
+      if (surah && Number.isFinite(ayatNo) && ayatNo > 0) {
+        const satu = getAyat(surah, Math.floor(ayatNo));
+        return satu ? json(satu) : json({ error: "ayat tidak ditemukan" }, 404);
+      }
+      const q = url.searchParams.get("q");
+      if (q) return json(cariAyat(q, limit, offset, surah));
+      return halaman(url, listAyat(limit, offset, surah), hitungAyat(surah));
+    }
+
+    if (url.pathname === "/api/hadits" && req.method === "GET") {
+      const { limit, offset } = ambilLimitOffset(url);
+      const kitab = url.searchParams.get("kitab") || undefined;
+      const status = url.searchParams.get("status_sanad") || undefined;
+      const q = url.searchParams.get("q");
+      if (q) return json(cariHadits(q, limit, offset, kitab, status));
+      return halaman(url, listHadits(limit, offset, kitab, status), hitungHadits(kitab, status));
+    }
+
+    if (url.pathname === "/api/siroh" && req.method === "GET") {
+      const { limit, offset } = ambilLimitOffset(url);
+      const q = url.searchParams.get("q");
+      if (q) return json(cariSiroh(q, limit, offset));
+      return halaman(url, listSiroh(limit, offset), hitungSiroh());
+    }
+
+    if (url.pathname === "/api/artikel" && req.method === "GET") {
+      const { limit, offset } = ambilLimitOffset(url);
+      const kategori = url.searchParams.get("kategori") || undefined;
+      const q = url.searchParams.get("q");
+      if (q) return json(cariArtikel(q, limit, offset, kategori));
+      return halaman(url, listArtikel(limit, offset, kategori), hitungArtikel(kategori));
+    }
+
+    if (url.pathname === "/api/cari-semua" && req.method === "GET") {
+      const q = url.searchParams.get("q");
+      if (!q) return json({ error: "parameter ?q= wajib" }, 400);
+      return json(cariSemua(q, url.searchParams.get("limit") ?? "20"));
+    }
+
+    if (url.pathname === "/api/modul" && req.method === "GET") {
+      return json({
+        ayat: hitungAyat(),
+        hadits: hitungHadits(),
+        siroh: hitungSiroh(),
+        artikel: hitungArtikel(),
+        konten: hitungKonten(),
+      });
     }
 
     // Frontend: file statis, dengan pengaman traversal (../ tidak boleh
