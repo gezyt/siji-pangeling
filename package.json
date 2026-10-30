@@ -7,6 +7,7 @@
     "start": "bun run src/index.ts",
     "typecheck": "bun check",
     "import:quran": "bun run scripts/import-quran.ts",
+    "import:hadits": "bun run scripts/import-hadits.ts",
     "migrate:modul": "bun run scripts/migrate-per-modul.ts",
     "backup": "sh scripts/backup.sh",
     "deploy": "sh scripts/deploy.sh"

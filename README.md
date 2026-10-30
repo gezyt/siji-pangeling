@@ -126,6 +126,48 @@ Deploy berikutnya cukup `./scripts/deploy.sh` dari root repo —
 backup, pull, restart, dan verifikasi jalan berurutan dalam satu
 perintah.
 
+## Impor hadits pilot: Bukhari + Muslim (fase 5)
+
+Sumber yang dipilih Pak Gun setelah audit 2026-10-30:
+fawazahmed0/hadith-api lewat jsDelivr (tanpa API key). Sutanlab
+dicoret sementara karena API-nya gagal DNS saat diaudit;
+Sunnah.com resmi butuh API key dan tidak ada terjemahan
+Indonesia; UmmahAPI hanya Inggris/Arab dan lisensinya tidak
+transparan.
+
+Skrip: `scripts/import-hadits.ts` — Arab dari edisi `ara-*`,
+Indonesia dari edisi `ind-*`, dicocokkan per hadithnumber.
+Kategori = judul bab dari metadata sumber (bahasa Inggris apa
+adanya); perawi dibiarkan NULL di pilot ini karena rantai
+periwayat sudah utuh di dalam teks Indonesia dan memecahnya
+otomatis berisiko salah atribusi.
+
+Kejujuran status yang wajib dibaca sebelum memakai data ini:
+- `grades` per hadits di sumber ini KOSONG. `status_sanad =
+  sahih` di sini berarti status kitab Sahih al-Bukhari /
+  Sahih Muslim, bukan grade per hadits, dan itu ditulis
+  eksplisit di kolom `sumber` tiap baris.
+- Penerjemah Indonesia tidak tercantum di sumber (author
+  "Unknown"), jadi kolom `sumber` juga menulis itu.
+- Tidak semua entri edisi punya terjemahan Indonesia: dari
+  7589 entri Bukhari, 731 teks Indonesianya kosong di sumber;
+  dari 7563 entri Muslim, 2636 kosong. Yang diimpor hanya
+  entri berteks Indonesia tidak kosong: Bukhari 6858, Muslim
+  4927, total 11785. 38 hadits yang diimpor tidak punya teks
+  Arab di sumber (37 Muslim, 1 Bukhari), dan 261 hadits
+  Bukhari tidak punya judul bab di sumber (kategori NULL).
+
+```bash
+bun run import:hadits                 # Bukhari + Muslim, lewati kitab yang sudah ada
+bun run import:hadits -- --kitab=bukhari
+bun run import:hadits -- --reset      # hapus dulu kedua kitab ini, impor ulang
+SIJI_DB=/tmp/uji.db bun run import:hadits
+```
+
+Di VPS, impor dijalankan sekali dari root repo setelah deploy
+kode ini (data tidak ikut repo, jadi impor di VPS terpisah
+dari impor uji lokal), lalu restart service bila perlu.
+
 ## Migrasi ayat ke tabel per modul
 
 Migrasi mem-parse judul `QS surah:ayat — NamaSurah` dan memecah isi
