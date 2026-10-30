@@ -84,6 +84,48 @@ daftar generik dari tabel `konten`:
   `/api/cari` tetap jalan di backend, hanya tidak lagi dipakai
   frontend.
 
+## Backup otomatis + deploy dari GitHub (fase 4)
+
+Sengaja BUKAN auto-deploy webhook: gerbang deploy tetap di tangan
+Pak Gun — skrip deploy hanya jalan bila ia memerintahkannya.
+Yang dibangun adalah satu perintah deploy yang bisa diulang,
+plus backup harian otomatis.
+
+- `scripts/backup.sh` — salinan SQLite yang aman selagi server
+  jalan (perintah `.backup`, bukan salin `app.db` mentah karena
+  ada WAL). Memverifikasi hitungan `konten` sumber vs backup,
+  menyimpan `app-YYYY-MM-DD.db`, dan menghapus backup harian
+  yang lebih tua dari 7 hari (hanya berkas berpola itu).
+  Konfigurasi: `SIJI_DB`, `SIJI_BACKUP_DIR`
+  (default `/opt/pangeling/backup` bila ada, kalau tidak
+  `./backup`), `SIJI_RETENSI_HARI` (default 7).
+- `systemd/siji-backup.service` + `systemd/siji-backup.timer` —
+  menjalankan backup tiap hari (`OnCalendar=daily`,
+  `Persistent=true`, jadi jadwal yang terlewat saat VPS mati
+  tetap dikejar saat hidup lagi). Cara pasang di VPS ada di
+  bawah.
+- `scripts/deploy.sh` — urutan deploy: batal bila working tree
+  kotor (perubahan Pak Gun yang belum di-commit tidak boleh
+  tertimpa pull), backup dulu, `git pull origin main`, restart
+  service `siji`, verifikasi `/health` dan `/api/modul`.
+  Opsi `--no-restart` dan `--no-verify` hanya untuk uji lokal,
+  bukan untuk deploy VPS.
+
+Cara pasang di VPS (sekali saja, setelah pull commit ini):
+
+```bash
+cd /opt/pangeling/siji
+./scripts/deploy.sh
+sudo cp systemd/siji-backup.service systemd/siji-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now siji-backup.timer
+systemctl list-timers siji-backup.timer --no-pager
+```
+
+Deploy berikutnya cukup `./scripts/deploy.sh` dari root repo —
+backup, pull, restart, dan verifikasi jalan berurutan dalam satu
+perintah.
+
 ## Migrasi ayat ke tabel per modul
 
 Migrasi mem-parse judul `QS surah:ayat — NamaSurah` dan memecah isi
