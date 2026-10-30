@@ -3,67 +3,193 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Siji — Pangeling</title>
+<meta name="description" content="Siji Pangeling: cari ayat, hadits, dan siroh dengan cepat.">
+<title>Siji Pangeling — Tafsir · Hadits · Siroh</title>
 <style>
+  :root {
+    --teal: #0f766e; --teal-dark: #0b5e57; --paper: #faf9f6;
+    --card: #ffffff; --line: #e7e2d9; --text: #1c1917; --muted: #78716c;
+    --chip-bg: #ecfdf5; --radius: 16px;
+  }
   * { box-sizing: border-box; }
-  body { font-family: system-ui, sans-serif; margin: 0; background: #faf9f6; color: #1a1a1a; }
-  header { background: #0f766e; color: #fff; padding: 1.5rem; text-align: center; }
-  header h1 { margin: 0; font-size: 1.5rem; }
-  header p { margin: .25rem 0 0; opacity: .85; font-size: .9rem; }
-  main { max-width: 720px; margin: 0 auto; padding: 1.5rem; }
-  .search { display: flex; gap: .5rem; margin-bottom: 1.5rem; }
-  .search input { flex: 1; padding: .75rem 1rem; border: 1px solid #d6d3cb; border-radius: 10px; font-size: 1rem; }
-  .search button { padding: .75rem 1.5rem; background: #0f766e; color: #fff; border: none; border-radius: 10px; font-size: 1rem; cursor: pointer; }
-  .card { background: #fff; border: 1px solid #e5e2da; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
-  .card h3 { margin: 0 0 .5rem; color: #0f766e; }
-  .card .isi { line-height: 1.7; }
-  .meta { margin-top: .75rem; font-size: .85rem; color: #777; }
-  .tag { display: inline-block; background: #ecfdf5; color: #0f766e; border-radius: 99px; padding: .1rem .6rem; font-size: .75rem; margin-right: .25rem; }
-  .kosong { text-align: center; color: #999; padding: 2rem 0; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    margin: 0; background: var(--paper); color: var(--text); line-height: 1.6; }
+  header { background: var(--teal); color: #fff; padding: 2rem 1rem 1.5rem; text-align: center; }
+  header h1 { margin: 0; font-size: 1.7rem; letter-spacing: .01em; }
+  header p { margin: .3rem 0 0; opacity: .88; font-size: .95rem; }
+  main { max-width: 760px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+  .search { display: flex; gap: .5rem; }
+  .search input { flex: 1; min-width: 0; padding: .85rem 1rem; border: 1px solid #d6d3cb;
+    border-radius: 12px; font-size: 1rem; background: #fff; }
+  .search input:focus, .chip:focus, .btn:focus { outline: 3px solid #99f6e4; outline-offset: 1px; }
+  .search button, .btn { padding: .85rem 1.4rem; background: var(--teal); color: #fff;
+    border: none; border-radius: 12px; font-size: 1rem; cursor: pointer; }
+  .search button:hover, .btn:hover { background: var(--teal-dark); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .chips { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0 .25rem; }
+  .chip { border: 1px solid var(--line); background: #fff; color: var(--text);
+    border-radius: 99px; padding: .4rem .95rem; font-size: .9rem; cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--chip-bg); border-color: var(--teal);
+    color: var(--teal-dark); font-weight: 600; }
+  .hitung { color: var(--muted); font-size: .9rem; margin: 1rem 0 0; min-height: 1.4em; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 1.25rem 1.4rem; margin: 1rem 0; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .card h3 { margin: 0 0 .6rem; color: var(--teal-dark); font-size: 1.05rem; line-height: 1.4; }
+  .arab { direction: rtl; text-align: right; font-family: "Amiri", "Scheherazade New",
+    "Traditional Naskh Arabic", serif; font-size: 1.55rem; line-height: 2.1;
+    margin: .2rem 0 .9rem; }
+  .isi { line-height: 1.75; }
+  .meta { margin-top: .9rem; font-size: .85rem; color: var(--muted);
+    display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+  .tag { display: inline-block; background: var(--chip-bg); color: var(--teal-dark);
+    border-radius: 99px; padding: .1rem .6rem; font-size: .75rem; }
+  .salin { margin-left: auto; background: none; border: 1px solid var(--line);
+    border-radius: 99px; padding: .25rem .8rem; font-size: .8rem; color: var(--muted); cursor: pointer; }
+  .kosong, .error { text-align: center; color: var(--muted); padding: 2.5rem 1rem; }
+  .lebih { text-align: center; margin-top: 1.5rem; }
+  footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 0 1rem 2rem; }
+  @media (max-width: 480px) {
+    header h1 { font-size: 1.45rem; }
+    .search { flex-direction: column; }
+    .search button { width: 100%; }
+    .arab { font-size: 1.35rem; }
+    .card { padding: 1.1rem; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>☾ Siji</h1>
-  <p>Tafsir · Hadits · Siroh — pangeling.web.id</p>
+  <h1>☾ Siji Pangeling</h1>
+  <p>Tafsir · Hadits · Siroh — pengingat dalam satu pencarian</p>
 </header>
 <main>
-  <div class="search">
-    <input id="q" type="search" placeholder="Cari ayat, hadits, tema… (mis. iman)" autofocus>
-    <button onclick="cari()">Cari</button>
-  </div>
-  <div id="hasil"><div class="kosong">Memuat konten…</div></div>
+  <form class="search" id="formCari">
+    <input id="q" type="search" placeholder="Cari ayat, hadits, tema… (mis. sabar)" autocomplete="off" aria-label="Cari konten">
+    <button type="submit">Cari</button>
+  </form>
+  <div class="chips" id="chips" role="group" aria-label="Saring berdasarkan jenis"></div>
+  <p class="hitung" id="hitung" aria-live="polite"></p>
+  <div id="hasil" aria-live="polite"><div class="kosong">Memuat konten…</div></div>
+  <div class="lebih"><button class="btn" id="lebih" hidden>Muat lagi</button></div>
 </main>
+<footer>Sumber ayat: Quran.com · Terjemahan Kemenag RI. Konten ditampilkan apa adanya untuk dibaca dan direnungkan.</footer>
 <script>
-async function muatSemua() {
-  const r = await fetch('/api/konten');
-  const d = await r.json();
-  tampil(d, 'Semua Konten');
+const LIMIT = 20;
+let state = { q: "", jenis: "", offset: 0, total: null, memuat: false, adaLagi: false };
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const br = (s) => esc(s).replace(/\n/g, "<br>");
+const adaArab = (s) => /[\u0600-\u06FF]/.test(s || "");
+
+function pisah(isi) {
+  const bagian = String(isi || "").split(/\n\s*\n/);
+  if (bagian.length >= 2 && adaArab(bagian[0])) {
+    return { arab: bagian[0].trim(), terjemahan: bagian.slice(1).join("\n\n").trim() };
+  }
+  return { arab: null, terjemahan: String(isi || "") };
 }
-async function cari() {
-  const q = document.getElementById('q').value.trim();
-  if (!q) return muatSemua();
-  const r = await fetch('/api/cari?q=' + encodeURIComponent(q));
-  const d = await r.json();
-  tampil(d, `Hasil pencarian: "${q}"`);
+
+function kartu(k) {
+  const p = pisah(k.isi);
+  return `<article class="card">
+    <h3>${esc(k.judul)}</h3>
+    ${p.arab ? `<p class="arab" dir="rtl" lang="ar">${br(p.arab)}</p>` : ""}
+    <div class="isi">${br(p.terjemahan)}</div>
+    <div class="meta">
+      ${k.sumber ? `<span>📜 ${esc(k.sumber)}</span>` : ""}
+      <span class="tag">${esc(k.jenis)}</span>
+      ${(k.tag || "").split(",").map((t) => t.trim()).filter(Boolean).map((t) => `<span class="tag">${esc(t)}</span>`).join("")}
+      <button class="salin" data-salinan="${esc(k.judul + "\n\n" + k.isi)}">Salin</button>
+    </div>
+  </article>`;
 }
-function tampil(list, judul) {
-  const el = document.getElementById('hasil');
-  if (!list.length) { el.innerHTML = '<div class="kosong">Tidak ditemukan.</div>'; return; }
-  el.innerHTML = `<h2 style="font-size:1.1rem">${judul}</h2>` + list.map(k => `
-    <div class="card">
-      <h3>${esc(k.judul)}</h3>
-      <div class="isi">${esc(k.isi)}</div>
-      <div class="meta">
-        ${k.sumber ? '📜 ' + esc(k.sumber) + ' · ' : ''}
-        <span class="tag">${esc(k.jenis)}</span>
-        ${k.tag ? k.tag.split(',').map(t => `<span class="tag">${esc(t.trim())}</span>`).join('') : ''}
-      </div>
-    </div>`).join('');
+
+async function ambil(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
 }
-function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-document.getElementById('q').addEventListener('keydown', e => { if (e.key === 'Enter') cari(); });
-muatSemua();
+
+async function muat(ulang) {
+  if (state.memuat) return;
+  state.memuat = true;
+  $("lebih").disabled = true;
+  if (ulang) { state.offset = 0; $("hasil").innerHTML = '<div class="kosong">Memuat…</div>'; }
+  try {
+    let data, total = null;
+    if (state.q) {
+      const p = new URLSearchParams({ q: state.q, limit: String(LIMIT), offset: String(state.offset) });
+      if (state.jenis) p.set("jenis", state.jenis);
+      data = await ambil("/api/cari?" + p);
+      // /api/cari mengembalikan array; ada lagi bila satu halaman penuh terisi
+      state.adaLagi = Array.isArray(data) && data.length === LIMIT;
+    } else {
+      const p = new URLSearchParams({ limit: String(LIMIT), offset: String(state.offset) });
+      if (state.jenis) p.set("jenis", state.jenis);
+      const j = await ambil("/api/konten?" + p);
+      data = Array.isArray(j) ? j : (j.data || []);
+      total = Array.isArray(j) ? null : (j.total ?? null);
+      state.total = total;
+      state.adaLagi = total === null ? data.length === LIMIT : (state.offset + data.length < total);
+    }
+    if (ulang) $("hasil").innerHTML = "";
+    if (!data.length && ulang) {
+      $("hasil").innerHTML = '<div class="kosong">Tidak ditemukan. Coba kata lain, mis. “sabar”, “syukur”, atau “iman”.</div>';
+    } else {
+      $("hasil").insertAdjacentHTML("beforeend", data.map(kartu).join(""));
+    }
+    state.offset += data.length;
+    $("hitung").textContent = state.q
+      ? (data.length || !ulang ? `Menampilkan ${state.offset} hasil untuk “${state.q}”.` : "")
+      : (total !== null ? `Menampilkan ${state.offset} dari ${total} konten.` : `Menampilkan ${state.offset} konten.`);
+    $("lebih").hidden = !state.adaLagi;
+  } catch (e) {
+    if (ulang) $("hasil").innerHTML = '<div class="error">Gagal memuat. Periksa koneksi lalu coba lagi.</div>';
+  } finally {
+    state.memuat = false;
+    $("lebih").disabled = false;
+  }
+}
+
+async function muatJenis() {
+  try {
+    const jenis = await ambil("/api/jenis");
+    const semua = ["", ...jenis];
+    $("chips").innerHTML = semua.map((j) => {
+      const label = j === "" ? "Semua" : j.charAt(0).toUpperCase() + j.slice(1);
+      return `<button class="chip" type="button" data-jenis="${esc(j)}" aria-pressed="${j === state.jenis}">${esc(label)}</button>`;
+    }).join("");
+    $("chips").querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => {
+      state.jenis = b.dataset.jenis;
+      $("chips").querySelectorAll(".chip").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      muat(true);
+    }));
+  } catch { /* chip gagal: pencarian tetap jalan tanpa filter */ }
+}
+
+let timer = null;
+$("q").addEventListener("input", (e) => {
+  clearTimeout(timer);
+  timer = setTimeout(() => { state.q = e.target.value.trim(); muat(true); }, 350);
+});
+$("formCari").addEventListener("submit", (e) => {
+  e.preventDefault();
+  clearTimeout(timer);
+  state.q = $("q").value.trim();
+  muat(true);
+});
+$("lebih").addEventListener("click", () => muat(false));
+$("hasil").addEventListener("click", async (e) => {
+  const b = e.target.closest(".salin");
+  if (!b) return;
+  try { await navigator.clipboard.writeText(b.dataset.salinan); b.textContent = "Tersalin ✓"; }
+  catch { b.textContent = "Gagal menyalin"; }
+  setTimeout(() => { b.textContent = "Salin"; }, 1500);
+});
+
+muatJenis();
+muat(true);
 </script>
 </body>
 </html>
