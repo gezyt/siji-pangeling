@@ -203,6 +203,33 @@ kode ini (data tidak ikut repo, jadi seed di VPS terpisah
 dari seed uji lokal); restart service tidak wajib untuk isi
 ini karena dibaca langsung dari DB.
 
+## Artikel pilot: 5 Q&A Islam kontemporer (fase 7)
+
+Tidak ada API artikel terverifikasi, jadi isi pilot ini
+ditulis orisinal (`scripts/seed-artikel-pilot.ts`), bukan
+diimpor. Dalil hanya ayat yang terjemahannya sudah
+diverifikasi ada di tabel ayat situs ini (Kemenag RI),
+dikutip persis dari DB; pilot ini tidak mengutip hadits
+supaya tidak ada nomor hadits yang belum terverifikasi teks
+lengkapnya. Tiap artikel ditutup kalimat "Artikel ini
+adalah pengingat, bukan fatwa."
+
+Isi pilot: ghibah di grup chat (QS 49:12), sabar dan salat
+saat hidup berat (QS 2:153), syukur atas nikmat biasa
+(QS 14:7, 2:152), menuntut ilmu dan adab majelis
+(QS 58:11), salat qashar saat bepergian (QS 4:101, tanpa
+angka batas jarak karena ulama berbeda pendapat).
+
+```bash
+bun run seed:artikel               # isi bila artikel masih kosong
+bun run seed:artikel -- --reset    # hapus semua artikel, isi ulang
+SIJI_DB=/tmp/uji.db bun run seed:artikel
+```
+
+Di VPS, seed dijalankan sekali dari root repo setelah deploy
+kode ini (data tidak ikut repo); restart service tidak wajib
+untuk isi ini karena dibaca langsung dari DB.
+
 ## Migrasi ayat ke tabel per modul
 
 Migrasi mem-parse judul `QS surah:ayat — NamaSurah` dan memecah isi

@@ -9,6 +9,7 @@
     "import:quran": "bun run scripts/import-quran.ts",
     "import:hadits": "bun run scripts/import-hadits.ts",
     "seed:siroh": "bun run scripts/seed-siroh-hijrah.ts",
+    "seed:artikel": "bun run scripts/seed-artikel-pilot.ts",
     "migrate:modul": "bun run scripts/migrate-per-modul.ts",
     "backup": "sh scripts/backup.sh",
     "deploy": "sh scripts/deploy.sh"
