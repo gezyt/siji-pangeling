@@ -168,6 +168,41 @@ Di VPS, impor dijalankan sekali dari root repo setelah deploy
 kode ini (data tidak ikut repo, jadi impor di VPS terpisah
 dari impor uji lokal), lalu restart service bila perlu.
 
+## Siroh pilot: timeline Hijrah + peta skematis (fase 6)
+
+Tidak ada API siroh terstruktur yang terverifikasi seperti
+Quran.com / hadith-api, jadi isi pilot ini ditulis sebagai
+seed dari ringkasan Ar-Rahiq al-Makhtum (al-Mubarakfuri):
+8 peristiwa Hijrah Makkah -> Madinah, masing-masing dengan
+hikmah (pelajaran yang bisa dipetik, bukan kutipan hadits)
+dan sumber di kolom `sumber`.
+
+Kejujuran tanggal: tanggal Hijri (27 Safar, 1, 8, 12
+Rabiul Awal 1 H) konsisten di sumber yang merujuk
+Mubarakfuri, tetapi konversi Masehi harian bervariasi antar
+sumber, jadi hanya tahun 622 yang disimpan di
+`tahun_masehi`. Peta di tab Siroh adalah SVG skematis
+(urutan Makkah -> Gua Tsur -> Quba -> Madinah), bukan peta
+geografis presisi, dan itu ditulis di panel peta itu sendiri.
+
+Perbaikan bug dari tangkapan layar Pak Gun 2026-10-30:
+dropdown Surah sempat tetap tampil di tab Hadits karena
+aturan CSS `.surah { display: flex }` mengalahkan atribut
+`hidden` bawaan browser. Diperbaiki dengan
+`.surah[hidden] { display: none; }`; logika JS-nya
+(`surahWrap.hidden = modul !== "ayat"`) memang sudah benar.
+
+```bash
+bun run seed:siroh                 # isi bila siroh masih kosong
+bun run seed:siroh -- --reset      # hapus semua siroh, isi ulang
+SIJI_DB=/tmp/uji.db bun run seed:siroh
+```
+
+Di VPS, seed dijalankan sekali dari root repo setelah deploy
+kode ini (data tidak ikut repo, jadi seed di VPS terpisah
+dari seed uji lokal); restart service tidak wajib untuk isi
+ini karena dibaca langsung dari DB.
+
 ## Migrasi ayat ke tabel per modul
 
 Migrasi mem-parse judul `QS surah:ayat — NamaSurah` dan memecah isi
