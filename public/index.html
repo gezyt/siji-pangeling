@@ -110,7 +110,7 @@
   <section id="tanyaWrap" hidden aria-label="Tanya jawab">
     <form class="search" id="formTanya">
       <input id="tanyaQ" type="search" placeholder="Tanyakan sesuatu… (mis. apa yang Al-Qur'an katakan tentang sabar?)" autocomplete="off" aria-label="Pertanyaan untuk tanya jawab">
-      <button type="submit">Tanya</button>
+      <button type="submit" id="tanyaTombol">Tanya</button>
     </form>
     <p class="catatan">Jawaban disusun dari ayat, hadits, siroh, dan artikel di Siji Pangeling, lengkap dengan sumbernya. Ini bukan fatwa — untuk soal hukum, tanyakan langsung ke ustadz atau ahli yang tepercaya.</p>
     <div class="contoh" id="tanyaContoh">
@@ -428,12 +428,14 @@ $("formTanya").addEventListener("submit", async (e) => {
   e.preventDefault();
   const q = $("tanyaQ").value.trim();
   if (!q) return;
-  const tombol = $("formTanya button");
-  tombol.disabled = true;
-  $("tanyaJawaban").innerHTML = '<div class="kosong">Mencari sumber dan merangkai jawaban…</div>';
-  $("tanyaSumber").innerHTML = "";
-  tanyaSumber = [];
+  const tombol = $("tanyaTombol");
+  // Semua di dalam try: bila ada galat (termasuk galat tombol/fetch),
+  // pesan galat tampil di halaman, bukan mati diam-diam.
   try {
+    tombol.disabled = true;
+    $("tanyaJawaban").innerHTML = '<div class="kosong">Mencari sumber dan merangkai jawaban…</div>';
+    $("tanyaSumber").innerHTML = "";
+    tanyaSumber = [];
     const r = await fetch("/api/tanya", {
       method: "POST",
       headers: { "content-type": "application/json" },
