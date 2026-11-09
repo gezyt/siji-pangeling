@@ -67,6 +67,15 @@
   .peta p { margin: 0 0 .5rem; font-size: .85rem; color: var(--muted); }
   .peta svg { width: 100%; height: auto; display: block; }
   .kosong, .error { text-align: center; color: var(--muted); padding: 2.5rem 1rem; }
+  /* Tab Tanya Jawab: kartu sumber bisa diklik untuk membuka sumbernya
+     di tab modul asalnya (ayat/hadits/siroh/artikel). */
+  .sumber { display: block; width: 100%; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+  .sumber strong { display: block; color: var(--teal-dark); margin-bottom: .25rem; }
+  .sumber span { font-size: .9rem; color: var(--muted); }
+  .contoh { display: flex; flex-wrap: wrap; gap: .4rem; margin: .75rem 0; }
+  .contoh button { background: #fff; border: 1px solid var(--line); border-radius: 99px;
+    padding: .35rem .8rem; font-size: .85rem; cursor: pointer; color: var(--teal-dark); }
+  .catatan { font-size: .85rem; color: var(--muted); margin: .75rem 0 0; }
   .lebih { text-align: center; margin-top: 1.5rem; }
   footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 0 1rem 2rem; }
   @media (max-width: 480px) {
@@ -98,6 +107,20 @@
     <input id="ayatNo" type="number" min="1" inputmode="numeric" placeholder="No." aria-label="Nomor ayat">
     <button id="bukaAyat" class="btn" type="button">Buka</button>
   </div>
+  <section id="tanyaWrap" hidden aria-label="Tanya jawab">
+    <form class="search" id="formTanya">
+      <input id="tanyaQ" type="search" placeholder="Tanyakan sesuatu… (mis. apa yang Al-Qur'an katakan tentang sabar?)" autocomplete="off" aria-label="Pertanyaan untuk tanya jawab">
+      <button type="submit">Tanya</button>
+    </form>
+    <p class="catatan">Jawaban disusun dari ayat, hadits, siroh, dan artikel di Siji Pangeling, lengkap dengan sumbernya. Ini bukan fatwa — untuk soal hukum, tanyakan langsung ke ustadz atau ahli yang tepercaya.</p>
+    <div class="contoh" id="tanyaContoh">
+      <button type="button" data-tanya="Apa yang Al-Qur'an katakan tentang sabar?">Apa yang Al-Qur'an katakan tentang sabar?</button>
+      <button type="button" data-tanya="Ayat kursi surah apa ayat berapa?">Ayat kursi surah apa ayat berapa?</button>
+      <button type="button" data-tanya="Hadits tentang niat">Hadits tentang niat</button>
+    </div>
+    <div id="tanyaJawaban" aria-live="polite"></div>
+    <div id="tanyaSumber"></div>
+  </section>
   <p class="hitung" id="hitung" aria-live="polite"></p>
   <section class="peta" id="petaSiroh" style="display:none" aria-label="Peta skematis perjalanan Hijrah">
     <h2>Rute Hijrah — Makkah ke Madinah</h2>
@@ -132,6 +155,9 @@ const MODUL = {
   hadits:  { label: "Hadits",    endpoint: "/api/hadits",  kosong: "Belum ada hadits. Modul ini sudah siap, isinya menunggu sumber hadits terverifikasi pada fase berikutnya." },
   siroh:   { label: "Siroh",     endpoint: "/api/siroh",   kosong: "Belum ada kisah siroh. Modul timeline ini sudah siap, isinya menyusul pada fase berikutnya." },
   artikel: { label: "Artikel",   endpoint: "/api/artikel", kosong: "Belum ada artikel. Modul Islam kontemporer ini sudah siap, isinya menyusul pada fase berikutnya." },
+  // Tanya Jawab bukan modul daftar: tab ini menampilkan panel tanya
+  // sendiri (form + jawaban + kartu sumber), bukan muat() daftar.
+  tanya:   { label: "Tanya Jawab", endpoint: "/api/tanya", kosong: "", tanya: true },
 };
 let state = { modul: "ayat", q: "", surah: "", ayat: "", offset: 0, total: null, memuat: false, adaLagi: false };
 
@@ -284,17 +310,27 @@ function renderTabs(hitungan) {
     const n = hitungan ? hitungan[kunci] : null;
     return `<button class="tab" type="button" role="tab" data-modul="${kunci}" aria-selected="${kunci === state.modul}">${m.label}${n !== null && n !== undefined ? ` <small>(${n})</small>` : ""}</button>`;
   }).join("");
-  $("tabs").querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => {
-    state.modul = b.dataset.modul;
-    state.q = ""; $("q").value = "";
-    state.surah = ""; $("surah").value = "";
-    state.ayat = ""; $("ayatNo").value = "";
-    $("tabs").querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
-    $("surahWrap").hidden = state.modul !== "ayat";
-    $("petaSiroh").style.display = state.modul === "siroh" ? "block" : "none";
-    $("q").placeholder = `Cari di ${MODUL[state.modul].label}… (mis. sabar)`;
-    muat(true);
-  }));
+  $("tabs").querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => pilihModul(b.dataset.modul)));
+}
+
+// Pindah tab. Dipakai tombol tab dan kartu sumber di Tanya Jawab
+// (kartu sumber membuka sumbernya di tab modul asalnya).
+function pilihModul(kunci) {
+  state.modul = kunci;
+  state.q = ""; $("q").value = "";
+  state.surah = ""; $("surah").value = "";
+  state.ayat = ""; $("ayatNo").value = "";
+  $("tabs").querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x.dataset.modul === kunci)));
+  const tanya = MODUL[kunci].tanya === true;
+  $("formCari").style.display = tanya ? "none" : "";
+  $("surahWrap").hidden = state.modul !== "ayat";
+  $("tanyaWrap").hidden = !tanya;
+  $("hasil").style.display = tanya ? "none" : "";
+  document.querySelector(".lebih").style.display = tanya ? "none" : "";
+  $("hitung").style.display = tanya ? "none" : "";
+  $("petaSiroh").style.display = state.modul === "siroh" ? "block" : "none";
+  $("q").placeholder = `Cari di ${MODUL[state.modul].label}… (mis. sabar)`;
+  if (!tanya) muat(true);
 }
 
 async function muatAwal() {
@@ -381,6 +417,69 @@ $("hasil").addEventListener("click", async (e) => {
     wadah.innerHTML = (tafsir + kata) || '<div class="kosong" style="padding:1rem">Tafsir bertingkat dan terjemah per kata untuk ayat ini belum tersedia. Keduanya disiapkan pada fase tafsir berikutnya.</div>';
   } catch {
     wadah.innerHTML = '<div class="error" style="padding:1rem">Gagal memuat detail.</div>';
+  }
+});
+
+// --- Tab Tanya Jawab: tanya -> POST /api/tanya -> jawaban + kartu sumber.
+// Kartu sumber bisa diklik: ayat dibuka di tab Al-Qur'an (surah+ayat),
+// sisanya dibuka di tab modulnya lewat pencarian judul/kitab.
+let tanyaSumber = [];
+$("formTanya").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const q = $("tanyaQ").value.trim();
+  if (!q) return;
+  const tombol = $("formTanya button");
+  tombol.disabled = true;
+  $("tanyaJawaban").innerHTML = '<div class="kosong">Mencari sumber dan merangkai jawaban…</div>';
+  $("tanyaSumber").innerHTML = "";
+  tanyaSumber = [];
+  try {
+    const r = await fetch("/api/tanya", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pertanyaan: q }),
+    });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+    $("tanyaJawaban").innerHTML = `<article class="card"><div class="isi">${br(j.jawaban)}</div></article>`;
+    tanyaSumber = j.sumber || [];
+    $("tanyaSumber").innerHTML = tanyaSumber.map((s, i) =>
+      `<button class="card sumber" type="button" data-i="${i}"><strong>${esc(s.rujukan)}</strong><span>${esc((s.teks || "").slice(0, 160))}…</span></button>`
+    ).join("");
+  } catch (err) {
+    $("tanyaJawaban").innerHTML = `<div class="error">${esc(err.message || "Gagal mendapatkan jawaban. Coba lagi.")}</div>`;
+  } finally {
+    tombol.disabled = false;
+  }
+});
+$("tanyaContoh").addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-tanya]");
+  if (!chip) return;
+  $("tanyaQ").value = chip.dataset.tanya;
+  $("formTanya").requestSubmit();
+});
+$("tanyaSumber").addEventListener("click", (e) => {
+  const kartu = e.target.closest("[data-i]");
+  if (!kartu) return;
+  const s = tanyaSumber[Number(kartu.dataset.i)];
+  if (!s) return;
+  if (s.modul === "ayat" && s.surah && s.ayat) {
+    pilihModul("ayat");
+    $("surah").value = String(s.surah);
+    state.surah = String(s.surah);
+    $("ayatNo").value = String(s.ayat);
+    state.ayat = String(s.ayat);
+    muat(true);
+  } else if (s.modul === "hadits" && s.kitab) {
+    pilihModul("hadits");
+    state.q = s.kitab + (s.no ? " " + s.no : "");
+    $("q").value = state.q;
+    muat(true);
+  } else {
+    pilihModul(s.modul);
+    state.q = s.judul || s.rujukan;
+    $("q").value = state.q;
+    muat(true);
   }
 });
 

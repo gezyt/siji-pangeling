@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "start": "bun run src/index.ts",
+    "test": "bun test",
     "typecheck": "bun check",
     "import:quran": "bun run scripts/import-quran.ts",
     "import:hadits": "bun run scripts/import-hadits.ts",

@@ -22,6 +22,21 @@ otomatis saat pertama jalan (kosong sampai impor dijalankan).
 - `GET /api/konten?limit=20&offset=0&jenis=ayat` — terpaginasi, mengembalikan `{data, total, limit, offset}`
 - `GET /api/cari?q=sabar&jenis=ayat&limit=20&offset=0` — ranking bm25 + substring (menemukan "bersyukur" dari kata "syukur")
 - `POST /api/konten` — TERKUNCI: hanya jalan bila `SIJI_ADMIN_TOKEN` disetel di server dan pemanggil mengirim header `x-admin-token` yang sama. Tanpa token, POST mengembalikan 403. Jangan menaruh token di repo.
+- `POST /api/tanya` — Tanya Jawab AI. Body `{pertanyaan}` (maks 500 karakter). Jawaban dirangkai AI HANYA dari ayat, hadits, siroh, dan artikel yang ditemukan di database (retrieval FTS5, 5 ayat + 3 hadits + 2 siroh + 2 artikel teratas), lengkap dengan kutipan sumbernya. Bila tidak ada sumber yang relevan, menjawab "tidak ditemukan" tanpa memanggil AI. Batas: 5 tanya/IP/menit, 20 tanya/IP/hari; jawaban yang sama di-cache 7 hari. Mengembalikan `{jawaban, sumber, dariCache}`; `sumber` berisi `modul`, `rujukan` (mis. `QS. Al-Baqarah 2:153`), dan `teks`.
+
+## Tanya Jawab AI (9router)
+
+Jawaban dihasilkan lewat **9router** — gateway AI multipenyedia yang jalan sebagai service sendiri di VPS (lihat `implementation_plan.md`). Siji memanggil endpoint OpenAI-compatible-nya; key tidak pernah keluar dari server.
+
+Konfigurasi (environment service siji, jangan masuk repo):
+
+- `SIJI_9ROUTER_URL` — default `http://127.0.0.1:20128/v1`
+- `SIJI_9ROUTER_KEY` — wajib; key khusus Siji dari dashboard 9router. Tanpa ini, `/api/tanya` menjawab 503.
+- `SIJI_TANYA_MODEL` — default `deepseek/deepseek-chat`; samakan persis dengan nama model di `/v1/models` 9router.
+
+Instalasi 9router di VPS (sekali saja): `./scripts/install-9router.sh` (lalu langkah manual dashboard: hubungkan provider, buat key Siji, catat nama model — petunjuk lengkap di komentar skrip itu). Unit systemd: `systemd/9router.service`.
+
+Uji: `bun test` (11 uji: kata kunci, retrieval, cache, rate limit, stub 9router).
 
 ## Skema per modul (fase 2)
 

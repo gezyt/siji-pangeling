@@ -5,6 +5,7 @@ import {
   listSiroh, hitungSiroh, cariSiroh,
   listArtikel, hitungArtikel, cariArtikel, cariSemua,
 } from "./db";
+import { jawabPertanyaan, bolehTanya, ipKlien, MAKS_PANJANG_PERTANYAAN } from "./tanya";
 import { join, dirname, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -55,10 +56,41 @@ Bun.serve({
   // Hanya localhost: publik diakses lewat Caddy (reverse proxy).
   hostname: "127.0.0.1",
   port: process.env.PORT ? Number(process.env.PORT) : 3001,
-  async fetch(req) {
+  async fetch(req, server) {
     const url = new URL(req.url);
 
     if (url.pathname === "/health") return json({ ok: true });
+
+    // Tanya Jawab AI: jawaban dirangkai 9router HANYA dari sumber yang
+    // diambil dari database Siji (lihat src/tanya.ts). Key 9router tidak
+    // pernah keluar dari server; browser hanya memanggil endpoint ini.
+    if (url.pathname === "/api/tanya" && req.method === "POST") {
+      let b: any;
+      try {
+        b = await req.json();
+      } catch {
+        return json({ error: "body JSON tidak valid" }, 400);
+      }
+      const pertanyaan = String(b?.pertanyaan ?? "").trim();
+      if (!pertanyaan) return json({ error: "Tulis dulu pertanyaannya." }, 400);
+      if (pertanyaan.length > MAKS_PANJANG_PERTANYAAN) {
+        return json({ error: `Pertanyaan maks ${MAKS_PANJANG_PERTANYAAN} karakter.` }, 400);
+      }
+      const batas = bolehTanya(ipKlien(req, server));
+      if (!batas.boleh) return json({ error: batas.alasan }, 429);
+      try {
+        return json(await jawabPertanyaan(pertanyaan));
+      } catch (e: any) {
+        const pesan = String(e?.message ?? "");
+        if (pesan.includes("SIJI_9ROUTER_KEY")) {
+          return json({ error: "Layanan tanya jawab belum dikonfigurasi di server ini." }, 503);
+        }
+        return json({ error: "Layanan tanya jawab sedang tidak dapat dijangkau. Coba lagi sebentar lagi." }, 503);
+      }
+    }
+    if (url.pathname === "/api/tanya") {
+      return json({ error: "method tidak diizinkan" }, 405);
+    }
 
     // API: daftar jenis untuk chip filter di frontend
     if (url.pathname === "/api/jenis" && req.method === "GET") {

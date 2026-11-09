@@ -569,3 +569,39 @@ export function cariSemua(q: string, limit = 20) {
     artikel: cariArtikel(q, limit, 0),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Tanya Jawab AI: cache jawaban.
+// Satu baris per pertanyaan (kunci = hash SHA-256 pertanyaan yang
+// dinormalisasi), berlaku 7 hari. Tujuannya hemat biaya: pertanyaan yang
+// sama tidak memanggil 9router dua kali. Isi jawaban disimpan sebagai
+// JSON { jawaban, sumber } persis seperti yang dikembalikan endpoint.
+// ---------------------------------------------------------------------------
+db.exec(`
+CREATE TABLE IF NOT EXISTS tanya_cache (
+  hash TEXT PRIMARY KEY,
+  pertanyaan TEXT NOT NULL,
+  jawaban TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+`);
+
+export function getTanyaCache(hash: string): string | null {
+  const row = db
+    .query(
+      "SELECT jawaban FROM tanya_cache WHERE hash = ? AND created_at >= datetime('now', '-7 days')"
+    )
+    .get(hash) as any;
+  return row ? String(row.jawaban) : null;
+}
+
+export function setTanyaCache(hash: string, pertanyaan: string, jawaban: string): void {
+  db.query(
+    "INSERT INTO tanya_cache (hash, pertanyaan, jawaban) VALUES (?, ?, ?) " +
+      "ON CONFLICT(hash) DO UPDATE SET pertanyaan = excluded.pertanyaan, jawaban = excluded.jawaban, created_at = datetime('now')"
+  ).run(hash, pertanyaan, jawaban);
+}
+
+export function bersihkanTanyaCache(): void {
+  db.query("DELETE FROM tanya_cache WHERE created_at < datetime('now', '-7 days')").run();
+}

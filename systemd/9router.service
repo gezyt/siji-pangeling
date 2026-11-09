@@ -1,0 +1,21 @@
+[Unit]
+Description=9router — gateway AI multipenyedia untuk Siji Pangeling
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/9router
+# Port 20128 dipaksa lewat --port (versi repo memakai 20127 sebagai
+# default, README memakai 20128). Bila port ini berubah, samakan
+# SIJI_9ROUTER_URL di service siji. Hanya localhost: publik tidak
+# boleh memanggil 9router langsung — hanya Siji yang boleh.
+Environment=PORT=20128
+Environment=HOSTNAME=127.0.0.1
+ExecStart=/usr/bin/env node custom-server.js --port 20128
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
