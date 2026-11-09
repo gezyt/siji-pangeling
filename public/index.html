@@ -24,9 +24,10 @@
   .tab[aria-selected="true"] { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 600; }
   .tab small { opacity: .75; font-weight: 400; }
   .search { display: flex; gap: .5rem; }
-  .search input, .surah select { flex: 1; min-width: 0; padding: .85rem 1rem; border: 1px solid #d6d3cb;
+  .search input, .surah select, .surah input { flex: 1; min-width: 0; padding: .85rem 1rem; border: 1px solid #d6d3cb;
     border-radius: 12px; font-size: 1rem; background: #fff; }
-  .search input:focus, .tab:focus, .btn:focus, .surah select:focus { outline: 3px solid #99f6e4; outline-offset: 1px; }
+  .search input:focus, .tab:focus, .btn:focus, .surah select:focus, .surah input:focus { outline: 3px solid #99f6e4; outline-offset: 1px; }
+  #ayatNo { flex: 0 1 6.5rem; }
   .search button, .btn { padding: .85rem 1.4rem; background: var(--teal); color: #fff;
     border: none; border-radius: 12px; font-size: 1rem; cursor: pointer; }
   .search button:hover, .btn:hover { background: var(--teal-dark); }
@@ -75,6 +76,7 @@
     .arab { font-size: 1.35rem; }
     .card { padding: 1.1rem; }
     .surah { flex-direction: column; align-items: stretch; }
+    #ayatNo { flex: 1 1 auto; }
   }
 </style>
 </head>
@@ -92,6 +94,9 @@
   <div class="surah" id="surahWrap" hidden>
     <label for="surah">Surah:</label>
     <select id="surah" aria-label="Pilih surah"></select>
+    <label for="ayatNo">Ayat ke-:</label>
+    <input id="ayatNo" type="number" min="1" inputmode="numeric" placeholder="No." aria-label="Nomor ayat">
+    <button id="bukaAyat" class="btn" type="button">Buka</button>
   </div>
   <p class="hitung" id="hitung" aria-live="polite"></p>
   <section class="peta" id="petaSiroh" style="display:none" aria-label="Peta skematis perjalanan Hijrah">
@@ -128,7 +133,7 @@ const MODUL = {
   siroh:   { label: "Siroh",     endpoint: "/api/siroh",   kosong: "Belum ada kisah siroh. Modul timeline ini sudah siap, isinya menyusul pada fase berikutnya." },
   artikel: { label: "Artikel",   endpoint: "/api/artikel", kosong: "Belum ada artikel. Modul Islam kontemporer ini sudah siap, isinya menyusul pada fase berikutnya." },
 };
-let state = { modul: "ayat", q: "", surah: "", offset: 0, total: null, memuat: false, adaLagi: false };
+let state = { modul: "ayat", q: "", surah: "", ayat: "", offset: 0, total: null, memuat: false, adaLagi: false };
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -206,8 +211,38 @@ async function muat(ulang) {
   state.memuat = true;
   $("lebih").disabled = true;
   if (ulang) { state.offset = 0; $("hasil").innerHTML = '<div class="kosong">Memuat…</div>'; }
+  // Modul Al-Qur'an tidak menampilkan apa pun sebelum pengguna mencari
+  // atau membuka surah/ayat tertentu — daftar 6.236 ayat tidak lagi
+  // dimuat otomatis saat halaman dibuka.
+  if (state.modul === "ayat" && !state.q && !state.surah && !state.ayat) {
+    if (ulang) {
+      $("hasil").innerHTML = `<div class="kosong">Cari ayat berdasarkan frase — ketik kata atau potongan terjemahan di kolom pencarian di atas.<br>Atau buka ayat tertentu: pilih surah, isi nomor ayat, lalu tekan Buka.</div>`;
+    }
+    $("hitung").textContent = "";
+    $("lebih").hidden = true;
+    state.memuat = false;
+    $("lebih").disabled = false;
+    return;
+  }
   try {
     const m = MODUL[state.modul];
+    // Buka satu ayat tertentu: /api/ayat?surah=..&ayat=.. mengembalikan
+    // satu objek ayat (atau 404 bila nomor ayat di luar surah itu).
+    if (state.modul === "ayat" && state.surah && state.ayat) {
+      try {
+        const satu = await ambil(`/api/ayat?surah=${state.surah}&ayat=${state.ayat}`);
+        if (ulang) $("hasil").innerHTML = "";
+        $("hasil").insertAdjacentHTML("beforeend", kartuAyat(satu));
+        state.offset = 1;
+        $("hitung").textContent = `Menampilkan ${satu.verse_key} — ${satu.surah_nama}.`;
+        $("lebih").hidden = true;
+      } catch {
+        if (ulang) $("hasil").innerHTML = `<div class="kosong">Ayat ${esc(state.ayat)} tidak ditemukan di surah ini. Periksa nomor ayatnya, lalu coba lagi.</div>`;
+        $("hitung").textContent = "";
+        $("lebih").hidden = true;
+      }
+      return;
+    }
     const p = new URLSearchParams({ limit: String(LIMIT), offset: String(state.offset) });
     if (state.q) p.set("q", state.q);
     if (state.modul === "ayat" && state.surah) p.set("surah", state.surah);
@@ -253,6 +288,7 @@ function renderTabs(hitungan) {
     state.modul = b.dataset.modul;
     state.q = ""; $("q").value = "";
     state.surah = ""; $("surah").value = "";
+    state.ayat = ""; $("ayatNo").value = "";
     $("tabs").querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x === b)));
     $("surahWrap").hidden = state.modul !== "ayat";
     $("petaSiroh").style.display = state.modul === "siroh" ? "block" : "none";
@@ -276,15 +312,48 @@ async function muatAwal() {
 let timer = null;
 $("q").addEventListener("input", (e) => {
   clearTimeout(timer);
+  // Mode cari frase menggantikan mode buka ayat tertentu.
+  state.ayat = ""; $("ayatNo").value = "";
   timer = setTimeout(() => { state.q = e.target.value.trim(); muat(true); }, 350);
 });
 $("formCari").addEventListener("submit", (e) => {
   e.preventDefault();
   clearTimeout(timer);
+  state.ayat = ""; $("ayatNo").value = "";
   state.q = $("q").value.trim();
   muat(true);
 });
-$("surah").addEventListener("change", (e) => { state.surah = e.target.value; muat(true); });
+$("surah").addEventListener("change", (e) => {
+  state.surah = e.target.value;
+  state.ayat = $("ayatNo").value.trim();
+  muat(true);
+});
+function bukaAyatTertentu() {
+  const surah = $("surah").value;
+  const ayat = $("ayatNo").value.trim();
+  if (!surah) {
+    $("hasil").innerHTML = '<div class="kosong">Pilih surah dulu, lalu isi nomor ayat dan tekan Buka.</div>';
+    $("hitung").textContent = "";
+    $("lebih").hidden = true;
+    return;
+  }
+  const n = Number(ayat);
+  if (!ayat || !Number.isFinite(n) || !Number.isInteger(n) || n < 1) {
+    $("hasil").innerHTML = '<div class="kosong">Isi nomor ayat dengan angka (mis. 255), lalu tekan Buka.</div>';
+    $("hitung").textContent = "";
+    $("lebih").hidden = true;
+    return;
+  }
+  state.surah = surah;
+  state.ayat = String(Math.floor(n));
+  // Mode buka ayat tertentu menggantikan mode cari frase.
+  state.q = ""; $("q").value = "";
+  muat(true);
+}
+$("bukaAyat").addEventListener("click", bukaAyatTertentu);
+$("ayatNo").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); bukaAyatTertentu(); }
+});
 $("lebih").addEventListener("click", () => muat(false));
 $("hasil").addEventListener("click", async (e) => {
   const salin = e.target.closest(".salin");
