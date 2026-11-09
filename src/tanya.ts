@@ -101,16 +101,89 @@ export function konfigurasiTanya() {
 // ternormalisasi jadi "qur" dan malah menarik surah Quraisy — kata itu
 // menyebut topiknya, bukan isi yang dicari.
 const KATA_BUANG = new Set(
-  "apa apakah bagaimana kenapa mengapa siapa kapan dimana di mana yang dan atau di ke dari dalam untuk dengan pada adalah itu ini saya pak bu tolong mohon jelaskan ceritakan tentang sebutkan berikan adakah bisakah bolehkah qur quran alquran katakan kata menurut juga kita mereka orang para kepada oleh bagi serta jika kalau ketika seperti antara atas sambil tanpa akan telah sudah jangan bukan hanya saja".split(" ")
+  "apa apakah bagaimana kenapa mengapa siapa kapan dimana di mana yang dan atau di ke dari dalam untuk dengan pada adalah itu ini saya pak bu tolong mohon jelaskan ceritakan tentang sebutkan berikan adakah bisakah bolehkah qur quran alquran katakan kata menurut juga kita mereka orang para kepada oleh bagi serta jika kalau ketika seperti antara atas sambil tanpa akan telah sudah jangan bukan hanya saja semua kemudian".split(" ")
 );
+
+// Stemming sederhana Bahasa Indonesia: ringkas kata berimbuhan ke
+// bentuk kanoniknya supaya "dicintai" dan "mencintai" dicari sebagai
+// kata yang sama ("cinta"), dan "terbesar" sebagai "besar". FTS5 hanya
+// cocok awalan kata ("cinta*" tidak cocok dengan token "mencintai"),
+// jadi tanpa ini imbuhan membuat sumber kunci tidak terlihat — persis
+// yang terjadi pada "Siapa yang paling dicintai Allah?" (QS. 3:31 tak
+// ditemukan karena ayatnya memakai "mencintai").
+//
+// Stem di sini TIDAK harus akar kamus yang benar; cukup bentuk kanonik
+// yang konsisten dan merupakan sub string dari kata aslinya. Alasannya:
+// cariModul selalu punya fallback LIKE (%stem%) yang menemukan kata
+// berimbuhan itu sendiri, dan pencocokan jawaban baku memakai cocok
+// longgar. Satu awalan + satu akhiran, dengan sisa minimal supaya kata
+// pendek yang memang akar ("iman", "kursi", "nabi", "tuhan", "jalan")
+// tidak rusak. Asimilasi nasal (menolong -> tolong, mengasihi ->
+// kasih) sengaja TIDAK ditangani: stem "olong"/"asihi" tetap sub string
+// dari kata aslinya, jadi LIKE tetap menemukannya.
+const AWALAN: [string, number][] = [
+  ["meng", 3], ["meny", 3], ["men", 3], ["mem", 3], ["me", 3],
+  ["peng", 3], ["peny", 3], ["pen", 3], ["pem", 3], ["per", 4], ["pe", 4],
+  ["di", 3], ["ter", 3], ["ber", 3], ["ke", 4], ["se", 4],
+];
+const AKHIRAN: [string, number][] = [
+  ["nya", 3], ["kan", 3], ["an", 4], ["i", 5],
+  ["lah", 3], ["kah", 3], ["ku", 3], ["mu", 3],
+];
+
+export function stemKata(kata: string): string {
+  let k = kata;
+  for (const [aw, min] of AWALAN) {
+    if (k.startsWith(aw) && k.length - aw.length >= min) {
+      k = k.slice(aw.length);
+      break;
+    }
+  }
+  for (const [ak, min] of AKHIRAN) {
+    if (k.endsWith(ak) && k.length - ak.length >= min) {
+      k = k.slice(0, -ak.length);
+      break;
+    }
+  }
+  return k;
+}
 
 export function kataKunci(pertanyaan: string): string[] {
   const kata = pertanyaan
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .split(/\s+/)
+    .filter((w) => w.length > 2 && !KATA_BUANG.has(w))
+    .map(stemKata)
+    // Saring ulang: stemming bisa menghasilkan kata buang ("seorang"
+    // -> "orang", "sesudah" -> "sudah") atau sisa yang terlalu pendek.
     .filter((w) => w.length > 2 && !KATA_BUANG.has(w));
   return [...new Set(kata)].slice(0, 8);
+}
+
+// Peta konsep: istilah yang tidak muncul harfiah di teks sumber.
+// "Mustahik" tidak ada di terjemahan ayat mana pun — yang ada adalah
+// daftarnya (fakir, miskin, amil, ...). "Makhluk" tidak ada di QS.
+// 40:57 — yang ada "penciptaan" (dan Arsy sebagai makhluk yang disebut
+// dalam hadits). Tanpa peta ini kedua pertanyaan itu tidak pernah
+// menemukan sumbernya, betapa pun bagusnya peringkat. Kunci dan nilai
+// ditulis sebagai kata wajar lalu di-stem (lihat stemKata) supaya
+// cocok dengan kataKunci. Peta ini sengaja kecil: hanya untuk celah
+// konsep yang sudah terbukti, bukan kamus sinonim umum.
+const PETA_KONSEP: Record<string, string[]> = {
+  mustahik: ["fakir", "miskin", "amil", "mualaf", "sahaya", "berhutang"],
+  makhluk: ["penciptaan", "arsy"],
+};
+
+export function perluasKataKunci(kunci: string[]): string[] {
+  const hasil = [...kunci];
+  for (const k of kunci) {
+    for (const tambah of PETA_KONSEP[k] ?? []) {
+      const stem = stemKata(tambah);
+      if (!hasil.includes(stem)) hasil.push(stem);
+    }
+  }
+  return hasil;
 }
 
 function potong(teks: string, maks = 600): string {
@@ -163,9 +236,14 @@ function cariGabung<T extends { id: number }>(
     .map((s) => s.item);
 }
 
-/** Retrieval v1 (FTS5): 5 ayat + 3 hadits + 2 siroh + 2 artikel teratas. */
+/**
+ * Retrieval (FTS5 + LIKE): 5 ayat + 3 hadits + 2 siroh + 2 artikel
+ * teratas. Kata kunci di-stem (lihat stemKata) lalu diperluas lewat
+ * peta konsep (lihat PETA_KONSEP), supaya istilah seperti "mustahik"
+ * dan "dicintai" menemukan sumbernya.
+ */
 export function cariSumber(pertanyaan: string): Sumber[] {
-  const kunci = kataKunci(pertanyaan);
+  const kunci = perluasKataKunci(kataKunci(pertanyaan));
   if (!kunci.length) return [];
   const sumber: Sumber[] = [];
   for (const a of cariGabung(cariAyat, kunci, 5) as any[]) {
@@ -247,7 +325,10 @@ function kataDariPemicu(pemicu: string): string[] {
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s,]/gu, " ")
     .split(/[\s,]+/)
-    .filter((w) => w.length > 2);
+    .filter((w) => w.length > 2)
+    // Di-stem seperti kataKunci supaya pemicu "dicintai" cocok dengan
+    // pertanyaan yang memakai "dicintai", "mencintai", atau "cinta".
+    .map(stemKata);
 }
 
 export function cariJawabanBaku(

@@ -230,6 +230,62 @@ memory diikuti (mulai dari jawaban baku kurasi).
   log stub membuktikan system prompt yang terkirim berasal dari file
   (`"Kamu adalah penjawab di situs Siji Pangeling. Jawablah HANYA..."`).
 
+## 6b. Lanjutan 2026-11-10 pagi — 4 pertanyaan gagal, perbaikan retrieval
+
+Empat pertanyaan dijawab "tidak ditemukan" ("Hadits tentang niat",
+"Siapa saja mustahik zakat?", "Siapa yang paling dicintai Allah?",
+"Apa makhluk yang paling besar?"). Diagnosis terverifikasi — bukan
+AI-nya, melainkan retrieval FTS5: (1) "mustahik" tidak pernah muncul
+di terjemahan ayat (0 cocok); QS. 9:60 ada di posisi 8 untuk kata
+"zakat", lolos dari 5 besar; (2) "dicintai" ≠ "mencintai" (FTS hanya
+cocok awalan kata) sehingga QS. 3:31 tak terlihat; "dicintai" hanya
+cocok 12:8 dan 2:177; (3) QS. 40:57 ada di posisi 61 untuk "besar"
+dan tidak mengandung kata "makhluk"; hadits Kursi-Arsy (cincin di
+padang pasir) memang tidak ada di koleksi; (4) hadits niat (HR.
+Bukhari No. 1) ADA di database dan terambil bila redaksinya cocok —
+jadi Q1 murni soal kata kunci + cache lama. Keempat penolakan itu
+tersimpan di cache 7 hari, jadi perbaikan retrieval saja tidak
+mengubah jawabannya sampai cache dihapus.
+
+Perbaikan (disetujui Pak Gun 2026-11-10, draf jawaban baku dinyatakan
+benar):
+
+- **Stemming sederhana** (`stemKata()` di `src/tanya.ts`): satu awalan
+  + satu akhiran, sisa minimal supaya kata pendek ("iman", "kursi",
+  "nabi") tidak rusak; asimilasi nasal sengaja tidak ditangani
+  (stem tetap sub string kata aslinya, jadi fallback LIKE tetap
+  menemukannya). "dicintai"/"mencintai" -> "cinta",
+  "terbesar" -> "besar", "beramal" -> "amal", "perjalanan" -> "jalan".
+  Diterapkan di `kataKunci()` (dipakai retrieval DAN pencocokan baku)
+  dan di `kataDariPemicu()`. Dua kata umum ditambah ke stoplist:
+  "semua", "kemudian".
+- **Peta konsep** (`PETA_KONSEP` di `src/tanya.ts`, sengaja kecil —
+  hanya celah yang sudah terbukti): mustahik -> fakir, miskin, amil,
+  mualaf, sahaya, berhutang; makhluk -> penciptaan, arsy. Diterapkan
+  di `cariSumber()` lewat `perluasKataKunci()`.
+- **4 jawaban baku baru** di `scripts/seed-jawaban-baku.ts` (total 7):
+  niat (Bukhari No. 1 + 2:225), mustahik (9:60), dicintai Allah
+  (3:31 + 61:4), makhluk terbesar (40:57 + Bukhari No. 7431).
+  Catatan seed lokal: hadits Bukhari No. 1 dan No. 7431 dilewati
+  dengan peringatan (DB lokal tanpa hadits) — di VPS keduanya ada
+  dan akan ikut tersimpan, seperti 3 hadits ikhlas sebelumnya.
+- **Hapus cache** (`hapusTanyaCache()` di `src/db.ts` +
+  `scripts/hapus-cache-tanya.ts`, perintah `bun run hapus-cache-tanya`):
+  menghapus entri cache untuk keempat pertanyaan itu plus dua redaksi
+  lain yang jawabannya ikut membaik ("hadits tentang niat beramal",
+  "kursi dibandingkan dengan arsy..."); tanpa restart.
+- **Uji:** 25/25 `bun test` lolos (7 uji baru: stemming, 3 uji
+  retrieval — 9:60 pertama untuk mustahik, 3:31 pertama untuk
+  dicintai, 40:57 masuk 5 besar untuk makhluk — pencocokan 4 baku
+  baru termasuk varian redaksi, hapus cache; tanpa regresi). E2E
+  server asli vs stub 9router (DB salinan yang sudah di-seed):
+  keempat pertanyaan dijawab baku (`dariBaku: true`, stub 0 hit),
+  varian "makhluk apa yang terbesar?" dan "siapa yang dicintai
+  Allah?" juga baku, dan jalur AI untuk "golongan fakir miskin amil"
+  mengembalikan 9:60 sebagai sumber pertama.
+- **Yang ditunda:** pencarian semantik (embeddings, Fase 4) — lihat
+  hasil lapis ini dulu.
+
 ## 7. Perintah deploy (setelah build — jalankan di VPS)
 
 ```bash
@@ -252,7 +308,11 @@ cd /opt/pangeling/siji
 #    jalankan ulang setiap kali scripts/seed-jawaban-baku.ts diubah):
 bun run seed:jawaban-baku
 
-# 4. Uji live:
+# 5. Hapus cache tanya (setelah perbaikan jawaban baku/retrieval, supaya
+#    pertanyaan yang dulu ditolak dicari ulang; tanpa restart):
+bun run hapus-cache-tanya
+
+# 6. Uji live:
 curl -X POST http://127.0.0.1:3001/api/tanya \
   -H 'content-type: application/json' \
   -d '{"pertanyaan":"apa yang Al-Qur'"'"'an katakan tentang sabar?"}'

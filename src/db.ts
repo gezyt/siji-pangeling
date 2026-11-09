@@ -606,6 +606,17 @@ export function bersihkanTanyaCache(): void {
   db.query("DELETE FROM tanya_cache WHERE created_at < datetime('now', '-7 days')").run();
 }
 
+/** Hapus satu entri cache tanya berdasarkan hash pertanyaannya.
+ *  Dipakai scripts/hapus-cache-tanya.ts: jawaban "tidak ditemukan"
+ *  yang tersimpan sebelum perbaikan retrieval/baku harus dihapus
+ *  supaya pertanyaan itu dicari ulang — kalau tidak, cache 7 hari
+ *  terus mengembalikan penolakan lama. Mengembalikan true bila ada
+ *  entri yang dihapus. */
+export function hapusTanyaCache(hash: string): boolean {
+  const info = db.query("DELETE FROM tanya_cache WHERE hash = ?").run(hash);
+  return info.changes > 0;
+}
+
 // ---------------------------------------------------------------------------
 // Jawaban baku (memory kurasi).
 // Jawaban yang ditulis/dis setujui Pak Gun untuk pertanyaan yang sering

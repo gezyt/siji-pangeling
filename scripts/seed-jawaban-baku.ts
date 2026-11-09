@@ -91,6 +91,35 @@ const DAFTAR: { pertanyaan: string; pemicu: string; jawaban: string; sumber: (Su
       "Ayat Kursi adalah QS. Al-Baqarah 2:255: \"Allah, tidak ada tuhan selain Dia, Yang Maha Hidup, Yang terus-menerus mengurus makhluk-Nya.\"",
     sumber: [ayatSumber("2:255")],
   },
+  {
+    pertanyaan: "Hadits tentang niat",
+    pemicu: "hadits, niat",
+    jawaban:
+      "Rasulullah ﷺ bersabda: \"Semua perbuatan tergantung niatnya, dan (balasan) bagi tiap-tiap orang tergantung apa yang diniatkan.\" (HR. Sahih al-Bukhari No. 1)\n\n" +
+      "Karena itu, nilai suatu amal ditentukan oleh niat yang menyertainya — hijrah karena Allah dan Rasul-Nya berbeda balasannya dengan hijrah karena dunia. Al-Qur'an pun menegaskan bahwa Allah memperhitungkan niat yang terkandung dalam hati (QS. Al-Baqarah 2:225).",
+    sumber: [haditsSumber("Sahih al-Bukhari", "1"), ayatSumber("2:225")],
+  },
+  {
+    pertanyaan: "Siapa saja mustahik zakat?",
+    pemicu: "mustahik, zakat",
+    jawaban:
+      "Mustahik zakat ada delapan golongan (QS. At-Tawbah 9:60): orang fakir, orang miskin, amil zakat, mualaf, hamba sahaya (untuk dimerdekakan), orang yang berhutang, orang yang berjuang di jalan Allah, dan orang yang sedang dalam perjalanan.",
+    sumber: [ayatSumber("9:60")],
+  },
+  {
+    pertanyaan: "Siapa yang paling dicintai Allah?",
+    pemicu: "dicintai, allah",
+    jawaban:
+      "Al-Qur'an tidak menyebut satu orang yang paling dicintai Allah, tetapi menyebut siapa saja yang dicintai-Nya. Di antaranya orang yang mengikuti Nabi Muhammad ﷺ — \"Jika kamu mencintai Allah, ikutilah aku, niscaya Allah mencintaimu\" (QS. Ali 'Imran 3:31) — dan orang-orang yang berperang di jalan-Nya dalam barisan yang teratur (QS. As-Saf 61:4).",
+    sumber: [ayatSumber("3:31"), ayatSumber("61:4")],
+  },
+  {
+    pertanyaan: "Apa makhluk yang paling besar?",
+    pemicu: "makhluk, besar",
+    jawaban:
+      "Al-Qur'an menyatakan penciptaan langit dan bumi lebih besar daripada penciptaan manusia (QS. Ghafir 40:57). Adapun Arsy disebut dalam doa Nabi sebagai \"Arsy yang Agung\", dan Allah sebagai Tuhan Pemelihara Arsy (HR. Sahih al-Bukhari No. 7431). Koleksi Siji tidak memuat hadits yang secara eksplisit menyebut makhluk yang paling besar.",
+    sumber: [ayatSumber("40:57"), haditsSumber("Sahih al-Bukhari", "7431")],
+  },
 ];
 
 let n = 0;

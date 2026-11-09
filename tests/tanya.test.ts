@@ -70,6 +70,26 @@ beforeAll(() => {
     "قُلْ إِنْ كُنْتُمْ تُحِبُّونَ اللَّهَ فَاتَّبِعُونِي",
     "Katakanlah: Jika kamu mencintai Allah, ikutilah aku, niscaya Allah mencintaimu dan mengampuni dosa-dosamu."
   );
+  // Ayat-ayat untuk uji perbaikan retrieval 2026-11-10 (mustahik,
+  // dicintai, makhluk terbesar): 9:60 + ayat-ayat zakat lain supaya
+  // peringkatnya bermakna, 40:57, dan 12:8 sebagai pengecoh "dicintai"
+  // yang tidak relevan. 2:177 sengaja TIDAK ditambah: ia cocok "allah"
+  // DAN "cinta" seperti 3:31 dan bisa menggeser uji peringkat cinta.
+  const ayatTambah: [number, number, string, number, string, string, string][] = [
+    [5, 9, "At-Tawbah", 60, "9:60", "", "Sesungguhnya zakat itu hanyalah untuk orang-orang fakir, orang miskin, amil zakat, orang yang dilunakkan hatinya (mualaf), untuk (memerdekakan) hamba sahaya, untuk (membebaskan) orang yang berhutang, untuk jalan Allah dan untuk orang yang sedang dalam perjalanan, sebagai kewajiban dari Allah. Allah Maha Mengetahui, Mahabijaksana."],
+    [6, 2, "Al-Baqarah", 43, "2:43", "", "Dan dirikanlah salat, tunaikanlah zakat, dan rukuklah bersama orang-orang yang rukuk."],
+    [7, 23, "Al-Mu'minun", 4, "23:4", "", "Dan orang-orang yang menunaikan zakat."],
+    [8, 41, "Fussilat", 7, "41:7", "", "Yaitu orang-orang yang tidak menunaikan zakat dan mereka mengingkari kehidupan akhirat."],
+    [9, 31, "Luqman", 4, "31:4", "", "Yaitu orang-orang yang mendirikan salat, menunaikan zakat, dan meyakini hari akhir."],
+    [10, 24, "An-Nur", 56, "24:56", "", "Dan dirikanlah salat, tunaikanlah zakat, dan taatlah kepada Rasul agar kamu diberi rahmat."],
+    [11, 40, "Ghafir", 57, "40:57", "", "Sungguh, penciptaan langit dan bumi itu lebih besar daripada penciptaan manusia, akan tetapi kebanyakan manusia tidak mengetahui."],
+    [12, 12, "Yusuf", 8, "12:8", "", "Sesungguhnya Yusuf dan saudaranya lebih dicintai oleh ayah kami daripada kami, padahal kami satu golongan."],
+  ];
+  for (const [id, surahNo, surahNama, ayatNo, key, arab, terjemahan] of ayatTambah) {
+    db.query(
+      "INSERT INTO ayat (id, surah_no, surah_nama, ayat_no, verse_key, arab, terjemahan) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    ).run(id, surahNo, surahNama, ayatNo, key, arab, terjemahan);
+  }
   db.query(
     "INSERT INTO hadits (kitab, no_hadits, matan_id, perawi, status_sanad) VALUES (?, ?, ?, ?, ?)"
   ).run("Bukhari", "1", "Sesungguhnya amal itu tergantung niatnya.", "Umar bin Khattab", "sahih");
@@ -116,9 +136,9 @@ test("cariSumber: kata langka (cinta) mengalahkan kata umum (allah)", () => {
   const ayat = sumber.filter((s) => s.modul === "ayat");
   expect(ayat.length).toBeGreaterThan(0);
   // 3:31 cocok "cinta" DAN "allah"; 1:1 dan 2:255 hanya cocok "allah".
-  expect(ayat[0].rujukan).toBe("QS. Ali 'Imran 3:31");
-  expect(ayat[0].surah).toBe(3);
-  expect(ayat[0].ayat).toBe(31);
+  expect(ayat[0]!.rujukan).toBe("QS. Ali 'Imran 3:31");
+  expect(ayat[0]!.surah).toBe(3);
+  expect(ayat[0]!.ayat).toBe(31);
 });
 
 test("jawabPertanyaan: bila AI menolak, sumber tidak ikut dikembalikan", async () => {
@@ -146,6 +166,81 @@ test("cariSumber menemukan hadits niat dan siroh hijrah", () => {
 
 test("cariSumber kosong untuk kata yang tidak ada", () => {
   expect(tanya.cariSumber("zxqwvkj")).toEqual([]);
+});
+
+test("stemKata: imbuhan Indonesia diringkas ke bentuk kanonik", () => {
+  expect(tanya.stemKata("dicintai")).toBe("cinta");
+  expect(tanya.stemKata("mencintai")).toBe("cinta");
+  expect(tanya.stemKata("terbesar")).toBe("besar");
+  expect(tanya.stemKata("beramal")).toBe("amal");
+  expect(tanya.stemKata("berhutang")).toBe("hutang");
+  expect(tanya.stemKata("perjalanan")).toBe("jalan");
+  expect(tanya.stemKata("penciptaan")).toBe("cipta");
+  expect(tanya.stemKata("diberikan")).toBe("beri");
+  // Kata pendek yang memang akar tidak boleh rusak.
+  expect(tanya.stemKata("iman")).toBe("iman");
+  expect(tanya.stemKata("kursi")).toBe("kursi");
+  expect(tanya.stemKata("nabi")).toBe("nabi");
+  expect(tanya.stemKata("sabar")).toBe("sabar");
+  expect(tanya.stemKata("tuhan")).toBe("tuhan");
+});
+
+test("kataKunci memakai stem: dicintai jadi cinta, terbesar jadi besar", () => {
+  expect(tanya.kataKunci("Siapa yang paling dicintai Allah?")).toEqual(["paling", "cinta", "allah"]);
+  expect(tanya.kataKunci("makhluk apa yang terbesar?")).toEqual(["makhluk", "besar"]);
+  expect(tanya.kataKunci("siapa yang beramal dan berhutang?")).toEqual(["amal", "hutang"]);
+  // "seorang" hasil stem-nya ("orang") ikut tersaring sebagai kata buang.
+  expect(tanya.kataKunci("seorang penuntut ilmu")).not.toContain("orang");
+});
+
+test("cariSumber: mustahik menemukan 9:60 lewat peta konsep", () => {
+  const sumber = tanya.cariSumber("Siapa saja mustahik zakat?");
+  const ayat = sumber.filter((s) => s.modul === "ayat");
+  expect(ayat.length).toBeGreaterThan(0);
+  // 9:60 cocok 7 kata kunci (zakat + 6 dari peta konsep); ayat zakat
+  // lain hanya cocok "zakat". Tanpa peta konsep 9:60 ada di posisi 8.
+  expect(ayat[0]!.rujukan).toBe("QS. At-Tawbah 9:60");
+});
+
+test("cariSumber: dicintai menemukan 3:31 lewat stemming", () => {
+  const sumber = tanya.cariSumber("Siapa yang paling dicintai Allah?");
+  const ayat = sumber.filter((s) => s.modul === "ayat");
+  expect(ayat.length).toBeGreaterThan(0);
+  // 3:31 cocok "cinta" dan "allah"; 12:8 hanya cocok "cinta".
+  expect(ayat[0]!.rujukan).toBe("QS. Ali 'Imran 3:31");
+});
+
+test("cariSumber: makhluk terbesar menemukan 40:57 lewat peta konsep", () => {
+  const sumber = tanya.cariSumber("Apa makhluk yang paling besar?");
+  const ayat = sumber.filter((s) => s.modul === "ayat");
+  // 40:57 cocok "besar" dan "cipta" (dari peta makhluk); 2:255 hanya
+  // cocok "makhluk". Tanpa peta konsep 40:57 ada di posisi 61.
+  expect(ayat.slice(0, 5).some((a) => a.rujukan.includes("40:57"))).toBe(true);
+});
+
+test("cariJawabanBaku: empat entri baru cocok dengan pertanyaannya", () => {
+  dbMod.upsertJawabanBaku("Hadits tentang niat", "hadits, niat", "Jawaban baku niat.", "[]");
+  dbMod.upsertJawabanBaku("Siapa saja mustahik zakat?", "mustahik, zakat", "Jawaban baku mustahik.", "[]");
+  dbMod.upsertJawabanBaku("Siapa yang paling dicintai Allah?", "dicintai, allah", "Jawaban baku dicintai.", "[]");
+  dbMod.upsertJawabanBaku("Apa makhluk yang paling besar?", "makhluk, besar", "Jawaban baku makhluk.", "[]");
+  expect(tanya.cariJawabanBaku("hadits tentang niat")?.jawaban).toBe("Jawaban baku niat.");
+  expect(tanya.cariJawabanBaku("siapa saja mustahik zakat?")?.jawaban).toBe("Jawaban baku mustahik.");
+  expect(tanya.cariJawabanBaku("siapa yang paling dicintai Allah?")?.jawaban).toBe("Jawaban baku dicintai.");
+  // Varian redaksi tetap cocok: "dicintai" tanpa "paling", dan
+  // "terbesar" yang ter-stem jadi "besar".
+  expect(tanya.cariJawabanBaku("siapa yang dicintai Allah?")?.jawaban).toBe("Jawaban baku dicintai.");
+  expect(tanya.cariJawabanBaku("apa makhluk yang paling besar?")?.jawaban).toBe("Jawaban baku makhluk.");
+  expect(tanya.cariJawabanBaku("makhluk apa yang terbesar?")?.jawaban).toBe("Jawaban baku makhluk.");
+});
+
+test("hapusTanyaCache: menghapus entri dan mengembalikan benar/salah", () => {
+  const q = "Pertanyaan Hapus Cache";
+  const hash = tanya.hashPertanyaan(q);
+  dbMod.setTanyaCache(hash, q, JSON.stringify({ jawaban: "lama", sumber: [] }));
+  expect(dbMod.getTanyaCache(hash)).not.toBeNull();
+  expect(dbMod.hapusTanyaCache(hash)).toBe(true);
+  expect(dbMod.getTanyaCache(hash)).toBeNull();
+  expect(dbMod.hapusTanyaCache(hash)).toBe(false);
 });
 
 test("jawabPertanyaan memanggil stub 9router dan mengembalikan jawaban + sumber", async () => {

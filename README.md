@@ -22,7 +22,7 @@ otomatis saat pertama jalan (kosong sampai impor dijalankan).
 - `GET /api/konten?limit=20&offset=0&jenis=ayat` — terpaginasi, mengembalikan `{data, total, limit, offset}`
 - `GET /api/cari?q=sabar&jenis=ayat&limit=20&offset=0` — ranking bm25 + substring (menemukan "bersyukur" dari kata "syukur")
 - `POST /api/konten` — TERKUNCI: hanya jalan bila `SIJI_ADMIN_TOKEN` disetel di server dan pemanggil mengirim header `x-admin-token` yang sama. Tanpa token, POST mengembalikan 403. Jangan menaruh token di repo.
-- `POST /api/tanya` — Tanya Jawab AI. Body `{pertanyaan}` (maks 500 karakter). Jawaban dirangkai AI HANYA dari ayat, hadits, siroh, dan artikel yang ditemukan di database (retrieval FTS5, 5 ayat + 3 hadits + 2 siroh + 2 artikel teratas), lengkap dengan kutipan sumbernya. Bila tidak ada sumber yang relevan, menjawab "tidak ditemukan" tanpa memanggil AI. Batas: 5 tanya/IP/menit, 20 tanya/IP/hari; jawaban yang sama di-cache 7 hari. Mengembalikan `{jawaban, sumber, dariCache}`; `sumber` berisi `modul`, `rujukan` (mis. `QS. Al-Baqarah 2:153`), dan `teks`.
+- `POST /api/tanya` — Tanya Jawab AI. Body `{pertanyaan}` (maks 500 karakter). Jawaban dirangkai AI HANYA dari ayat, hadits, siroh, dan artikel yang ditemukan di database (retrieval FTS5 + LIKE, 5 ayat + 3 hadits + 2 siroh + 2 artikel teratas; kata kunci di-stem Bahasa Indonesia dan diperluas lewat peta konsep — lihat `src/tanya.ts`: `stemKata`, `PETA_KONSEP`), lengkap dengan kutipan sumbernya. Bila tidak ada sumber yang relevan, menjawab "tidak ditemukan" tanpa memanggil AI. Batas: 5 tanya/IP/menit, 20 tanya/IP/hari; jawaban yang sama di-cache 7 hari. Mengembalikan `{jawaban, sumber, dariCache}`; `sumber` berisi `modul`, `rujukan` (mis. `QS. Al-Baqarah 2:153`), dan `teks`.
 
 ## Tanya Jawab AI (9router)
 
@@ -45,15 +45,23 @@ dan diperiksa SEBELUM cache dan SEBELUM memanggil AI — tanpa biaya AI,
 tanpa risiko AI salah merangkai. Tiap entri punya `pemicu` (kata kunci,
 dipisah koma, semuanya harus ada di pertanyaan; makin banyak pemicunya,
 makin spesifik) dan `sumber` (JSON, supaya kartu sumber di frontend
-tetap bisa diklik). Isi awal (sabar, ikhlas, ayat kursi) lewat
+tetap bisa diklik). Isi awal (sabar, ikhlas, ayat kursi, niat,
+mustahik, dicintai Allah, makhluk terbesar — 7 entri) lewat
 `bun run seed:jawaban-baku` — menambah/mengubah entri = edit
 `scripts/seed-jawaban-baku.ts` lalu jalankan ulang (upsert, tidak perlu
 restart). Jawaban baku ditandai di halaman dengan "✦ Jawaban kurasi
 Pak Gun." dan dikembalikan dengan `dariBaku: true`.
 
+Hapus cache tanya: jawaban "tidak ditemukan" tersimpan 7 hari, jadi
+setelah jawaban baku ditambah atau retrieval diperbaiki, pertanyaan
+yang dulu ditolak harus dicari ulang — `bun run hapus-cache-tanya`
+(menghapus entri untuk daftar pertanyaan di
+`scripts/hapus-cache-tanya.ts`, plus pertanyaan tambahan yang
+diberikan sebagai argumen; tidak perlu restart).
+
 Instalasi 9router di VPS (sekali saja): `./scripts/install-9router.sh` (lalu langkah manual dashboard: hubungkan provider, buat key Siji, catat nama model — petunjuk lengkap di komentar skrip itu). Unit systemd: `systemd/9router.service`.
 
-Uji: `bun test` (11 uji: kata kunci, retrieval, cache, rate limit, stub 9router).
+Uji: `bun test` (25 uji: kata kunci + stemming, retrieval + peta konsep, jawaban baku, hapus cache, rate limit, stub 9router).
 
 ## Skema per modul (fase 2)
 
