@@ -69,7 +69,7 @@ export function konfigurasiTanya() {
 // ternormalisasi jadi "qur" dan malah menarik surah Quraisy — kata itu
 // menyebut topiknya, bukan isi yang dicari.
 const KATA_BUANG = new Set(
-  "apa apakah bagaimana kenapa mengapa siapa kapan dimana di mana yang dan atau di ke dari dalam untuk dengan pada adalah itu ini saya pak bu tolong mohon jelaskan ceritakan tentang sebutkan berikan adakah bisakah bolehkah qur quran alquran katakan kata menurut juga kita mereka orang para".split(" ")
+  "apa apakah bagaimana kenapa mengapa siapa kapan dimana di mana yang dan atau di ke dari dalam untuk dengan pada adalah itu ini saya pak bu tolong mohon jelaskan ceritakan tentang sebutkan berikan adakah bisakah bolehkah qur quran alquran katakan kata menurut juga kita mereka orang para kepada oleh bagi serta jika kalau ketika seperti antara atas sambil tanpa akan telah sudah jangan bukan hanya saja".split(" ")
 );
 
 export function kataKunci(pertanyaan: string): string[] {
@@ -92,21 +92,43 @@ function potong(teks: string, maks = 600): string {
  * bila satu katanya tidak ada. Di sini tiap kata kunci dicari sendiri,
  * lalu hasilnya digabung dan diurutkan berdasarkan jumlah kata kunci yang
  * cocok — yang paling relevan di atas.
+ *
+ * Bobot kelangkaan: kata yang muncul di mana-mana (mis. "allah", ada di
+ * ribuan ayat) tidak boleh mengalahkan kata yang jarang (mis. "cinta").
+ * Tiap kata kunci ditimbang 1 / jumlah hasil yang dikembalikannya:
+ * ayat yang hanya cocok kata umum mendapat skor kecil, ayat yang cocok
+ * kata langka mendapat skor besar. Tanpa ini, 5 ayat teratas untuk
+ * "Allah itu cinta kepada siapa?" adalah ayat-ayat acak yang kebetulan
+ * menyebut Allah.
+ *
+ * Batas uji 100 (bukan 20): kata "cinta" saja cocok 31 ayat — dengan
+ * batas 20, ayat kunci seperti 3:31 terpotong dari daftar "cinta" dan
+ * tidak pernah mendapat bobotnya, sehingga peringkat jatuh kembali
+ * ke urutan bm25 kata "allah" (9:106, 64:11, 4:45).
  */
+const BATAS_UJI_KELANGKAAN = 100;
+
 function cariGabung<T extends { id: number }>(
   fn: (q: string, limit: number, offset: number) => T[],
   kunci: string[],
   limit: number
 ): T[] {
-  const skor = new Map<number, { item: T; n: number }>();
+  const skor = new Map<number, { item: T; skor: number; n: number }>();
   for (const k of kunci) {
-    for (const item of fn(k, limit, 0)) {
-      const s = skor.get(item.id) ?? { item, n: 0 };
+    const hasil = fn(k, BATAS_UJI_KELANGKAAN, 0);
+    if (!hasil.length) continue;
+    const bobot = 1 / hasil.length;
+    for (const item of hasil) {
+      const s = skor.get(item.id) ?? { item, skor: 0, n: 0 };
+      s.skor += bobot;
       s.n++;
       skor.set(item.id, s);
     }
   }
-  return [...skor.values()].sort((a, b) => b.n - a.n).slice(0, limit).map((s) => s.item);
+  return [...skor.values()]
+    .sort((a, b) => b.skor - a.skor || b.n - a.n)
+    .slice(0, limit)
+    .map((s) => s.item);
 }
 
 /** Retrieval v1 (FTS5): 5 ayat + 3 hadits + 2 siroh + 2 artikel teratas. */
@@ -190,7 +212,11 @@ export async function jawabPertanyaan(pertanyaanMentah: string): Promise<HasilTa
   if (cache) {
     try {
       const parsed = JSON.parse(cache) as { jawaban: string; sumber: Sumber[] };
-      return { jawaban: parsed.jawaban, sumber: parsed.sumber, dariCache: true };
+      // Aturan yang sama seperti jawaban segar: bila jawabannya
+      // "tidak ditemukan", sumber tidak ikut ditampilkan — termasuk
+      // untuk jawaban lama yang tersimpan sebelum aturan ini ada.
+      const sumber = jawabanMenolak(parsed.jawaban) ? [] : parsed.sumber;
+      return { jawaban: parsed.jawaban, sumber, dariCache: true };
     } catch {
       // Cache rusak: lanjut seperti tidak ada cache.
     }
@@ -202,9 +228,22 @@ export async function jawabPertanyaan(pertanyaanMentah: string): Promise<HasilTa
     return hasil;
   }
   const jawaban = await panggilAI(pertanyaan, sumber);
-  const hasil: HasilTanya = { jawaban, sumber, dariCache: false };
+  // Bila AI sendiri menyatakan tidak menemukan jawaban, sumber yang
+  // sempat terambil TIDAK ikut dikembalikan: menampilkannya di bawah
+  // jawaban "tidak ditemukan" membuat ayat-ayat yang lemah kecocokannya
+  // tampak seperti jawaban — persis yang terjadi pada pertanyaan
+  // "Allah itu cinta kepada siapa?" (sumbernya At-Tawbah 9:106 dkk.,
+  // padahal jawabannya "tidak ditemukan").
+  const hasil: HasilTanya = jawabanMenolak(jawaban)
+    ? { jawaban, sumber: [], dariCache: false }
+    : { jawaban, sumber, dariCache: false };
   setTanyaCache(hash, pertanyaan, JSON.stringify({ jawaban: hasil.jawaban, sumber: hasil.sumber }));
   return hasil;
+}
+
+/** Benar bila jawaban menyatakan tidak menemukan jawaban di koleksi. */
+export function jawabanMenolak(jawaban: string): boolean {
+  return jawaban.includes("Tidak ditemukan jawaban di koleksi");
 }
 
 // ---------------------------------------------------------------------------

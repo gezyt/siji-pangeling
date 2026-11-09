@@ -23,13 +23,19 @@ let stubHits = 0;
 const stub = Bun.serve({
   hostname: "127.0.0.1",
   port: 3399,
-  fetch(req) {
+  async fetch(req) {
     const url = new URL(req.url);
     if (url.pathname === "/v1/chat/completions" && req.method === "POST") {
       stubHits++;
-      return Response.json({
-        choices: [{ message: { content: "Jawaban contoh berdasarkan QS. Al-Baqarah 2:153." } }],
-      });
+      // Stub meniru dua perilaku AI: menjawab biasa, atau menolak
+      // bila prompt-nya menyebut "cinta" (skenario "tidak ditemukan"
+      // meski ada sumber yang terambil).
+      const b: any = await req.json().catch(() => ({}));
+      const prompt = String(b?.messages?.[1]?.content ?? "");
+      const isi = prompt.includes("cinta")
+        ? "Tidak ditemukan jawaban di koleksi Siji Pangeling untuk pertanyaan ini."
+        : "Jawaban contoh berdasarkan QS. Al-Baqarah 2:153.";
+      return Response.json({ choices: [{ message: { content: isi } }] });
     }
     return new Response("not found", { status: 404 });
   },
@@ -56,6 +62,13 @@ beforeAll(() => {
     3, 2, "Al-Baqarah", 255, "2:255",
     "اللَّهُ لَا إِلَٰهَ إِلَّا هُوَ الْحَيُّ الْقَيُّومُ",
     "Allah, tidak ada tuhan selain Dia, Yang Maha Hidup, Yang terus-menerus mengurus makhluk-Nya."
+  );
+  db.query(
+    "INSERT INTO ayat (id, surah_no, surah_nama, ayat_no, verse_key, arab, terjemahan) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run(
+    4, 3, "Ali 'Imran", 31, "3:31",
+    "قُلْ إِنْ كُنْتُمْ تُحِبُّونَ اللَّهَ فَاتَّبِعُونِي",
+    "Katakanlah: Jika kamu mencintai Allah, ikutilah aku, niscaya Allah mencintaimu dan mengampuni dosa-dosamu."
   );
   db.query(
     "INSERT INTO hadits (kitab, no_hadits, matan_id, perawi, status_sanad) VALUES (?, ?, ?, ?, ?)"
@@ -91,6 +104,37 @@ test("cariSumber menemukan ayat 2:153 untuk pertanyaan tentang sabar", () => {
   expect(ayat!.rujukan).toBe("QS. Al-Baqarah 2:153");
   expect(ayat!.surah).toBe(2);
   expect(ayat!.ayat).toBe(153);
+});
+
+test("kataKunci membuang kata depan umum (kepada, oleh, akan)", () => {
+  expect(tanya.kataKunci("Allah itu cinta kepada siapa?")).toEqual(["allah", "cinta"]);
+  expect(tanya.kataKunci("siapa yang akan menolong oleh Allah?")).not.toContain("akan");
+});
+
+test("cariSumber: kata langka (cinta) mengalahkan kata umum (allah)", () => {
+  const sumber = tanya.cariSumber("Allah itu cinta kepada siapa?");
+  const ayat = sumber.filter((s) => s.modul === "ayat");
+  expect(ayat.length).toBeGreaterThan(0);
+  // 3:31 cocok "cinta" DAN "allah"; 1:1 dan 2:255 hanya cocok "allah".
+  expect(ayat[0].rujukan).toBe("QS. Ali 'Imran 3:31");
+  expect(ayat[0].surah).toBe(3);
+  expect(ayat[0].ayat).toBe(31);
+});
+
+test("jawabPertanyaan: bila AI menolak, sumber tidak ikut dikembalikan", async () => {
+  const hasil = await tanya.jawabPertanyaan("Allah itu cinta kepada siapa?");
+  expect(hasil.jawaban).toContain("Tidak ditemukan jawaban di koleksi");
+  expect(hasil.sumber).toEqual([]);
+  expect(hasil.dariCache).toBe(false);
+  // Panggilan kedua dari cache: tetap tanpa sumber.
+  const kedua = await tanya.jawabPertanyaan("Allah itu cinta kepada siapa?");
+  expect(kedua.dariCache).toBe(true);
+  expect(kedua.sumber).toEqual([]);
+});
+
+test("jawabanMenolak mengenali kalimat penolakan", () => {
+  expect(tanya.jawabanMenolak("Tidak ditemukan jawaban di koleksi Siji Pangeling untuk pertanyaan ini.")).toBe(true);
+  expect(tanya.jawabanMenolak("Sabar adalah penolong. (QS. Al-Baqarah 2:153)")).toBe(false);
 });
 
 test("cariSumber menemukan hadits niat dan siroh hijrah", () => {

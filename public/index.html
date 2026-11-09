@@ -444,7 +444,12 @@ $("formTanya").addEventListener("submit", async (e) => {
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
     $("tanyaJawaban").innerHTML = `<article class="card"><div class="isi">${br(j.jawaban)}</div></article>`;
-    tanyaSumber = j.sumber || [];
+    // Bila jawabannya "tidak ditemukan", kartu sumber tidak ditampilkan
+    // — menampilkannya membuat ayat yang lemah kecocokannya tampak
+    // seperti jawaban. (Server juga sudah mengosongkan sumber untuk
+    // jawaban seperti ini; ini pengaman untuk jawaban lama dari cache.)
+    const tidakDitemukan = String(j.jawaban || "").includes("Tidak ditemukan jawaban di koleksi");
+    tanyaSumber = tidakDitemukan ? [] : (j.sumber || []);
     $("tanyaSumber").innerHTML = tanyaSumber.map((s, i) =>
       `<button class="card sumber" type="button" data-i="${i}"><strong>${esc(s.rujukan)}</strong><span>${esc((s.teks || "").slice(0, 160))}…</span></button>`
     ).join("");
