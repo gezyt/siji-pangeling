@@ -34,6 +34,23 @@ Konfigurasi (environment service siji, jangan masuk repo):
 - `SIJI_9ROUTER_KEY` — wajib; key khusus Siji dari dashboard 9router. Tanpa ini, `/api/tanya` menjawab 503.
 - `SIJI_TANYA_MODEL` — default `deepseek/deepseek-chat`; samakan persis dengan nama model di `/v1/models` 9router.
 
+Instruksi untuk AI (system prompt) ada di `prompts/sistem-tanya.md` — ubah
+kata-katanya di file itu lalu restart service siji (deploy sudah
+me-restart). Bila file hilang/rusak, server memakai instruksi cadangan
+di `src/tanya.ts`.
+
+Jawaban baku (memory kurasi): jawaban yang ditulis/disetujui Pak Gun
+untuk pertanyaan yang sering masuk, disimpan di tabel `jawaban_baku`
+dan diperiksa SEBELUM cache dan SEBELUM memanggil AI — tanpa biaya AI,
+tanpa risiko AI salah merangkai. Tiap entri punya `pemicu` (kata kunci,
+dipisah koma, semuanya harus ada di pertanyaan; makin banyak pemicunya,
+makin spesifik) dan `sumber` (JSON, supaya kartu sumber di frontend
+tetap bisa diklik). Isi awal (sabar, ikhlas, ayat kursi) lewat
+`bun run seed:jawaban-baku` — menambah/mengubah entri = edit
+`scripts/seed-jawaban-baku.ts` lalu jalankan ulang (upsert, tidak perlu
+restart). Jawaban baku ditandai di halaman dengan "✦ Jawaban kurasi
+Pak Gun." dan dikembalikan dengan `dariBaku: true`.
+
 Instalasi 9router di VPS (sekali saja): `./scripts/install-9router.sh` (lalu langkah manual dashboard: hubungkan provider, buat key Siji, catat nama model — petunjuk lengkap di komentar skrip itu). Unit systemd: `systemd/9router.service`.
 
 Uji: `bun test` (11 uji: kata kunci, retrieval, cache, rate limit, stub 9router).

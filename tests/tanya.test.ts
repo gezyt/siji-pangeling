@@ -194,6 +194,34 @@ test("cache tanya: simpan lalu baca kembali", () => {
   expect(dbMod.getTanyaCache(hash)).toBe(JSON.stringify({ jawaban: "ya", sumber: [] }));
 });
 
+test("prompt sistem dimuat dari prompts/sistem-tanya.md", () => {
+  expect(tanya.PROMPT_SISTEM).toContain("HANYA berdasarkan sumber");
+  expect(tanya.PROMPT_SISTEM).not.toContain("<!--");
+  expect(tanya.muatPromptSistem()).toBe(tanya.PROMPT_SISTEM);
+});
+
+test("cariJawabanBaku: cocok dan yang spesifik menang", () => {
+  dbMod.upsertJawabanBaku("Apa itu ikhlas?", "ikhlas", "Jawaban baku ikhlas.", JSON.stringify([{ modul: "artikel", rujukan: "Ikhlas", teks: "tulus" }]));
+  dbMod.upsertJawabanBaku("Apa itu sabar?", "sabar", "Jawaban baku sabar umum.", "[]");
+  dbMod.upsertJawabanBaku("Mengapa sabar dan salat menolong?", "sabar, salat", "Jawaban baku sabar-salat.", "[]");
+  expect(tanya.cariJawabanBaku("apa itu ikhlas?")?.jawaban).toBe("Jawaban baku ikhlas.");
+  expect(tanya.cariJawabanBaku("bagaimana cara salat?")).toBeNull();
+  expect(tanya.cariJawabanBaku("mengapa sabar dan salat menolong kita?")?.jawaban).toBe("Jawaban baku sabar-salat.");
+  expect(tanya.cariJawabanBaku("apa itu sabar?")?.jawaban).toBe("Jawaban baku sabar umum.");
+});
+
+test("jawabPertanyaan: jawaban baku didahulukan atas AI dan atas cache", async () => {
+  const q = "apa itu ikhlas?";
+  dbMod.setTanyaCache(tanya.hashPertanyaan(q), q, JSON.stringify({ jawaban: "Jawaban AI lama.", sumber: [] }));
+  const sebelum = stubHits;
+  const hasil = await tanya.jawabPertanyaan(q);
+  expect(hasil.dariBaku).toBe(true);
+  expect(hasil.dariCache).toBe(false);
+  expect(hasil.jawaban).toBe("Jawaban baku ikhlas.");
+  expect(hasil.sumber[0]?.rujukan).toBe("Ikhlas");
+  expect(stubHits).toBe(sebelum);
+});
+
 test("ipKlien: CF-Connecting-IP diutamakan, lalu XFF, lalu koneksi", () => {
   const cf = new Request("http://x/", { headers: { "cf-connecting-ip": "1.2.3.4", "x-forwarded-for": "5.6.7.8" } });
   expect(tanya.ipKlien(cf)).toBe("1.2.3.4");

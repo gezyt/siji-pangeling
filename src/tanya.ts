@@ -14,6 +14,9 @@
 //                        nama model di /v1/models 9router)
 
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   cariAyat,
   cariHadits,
@@ -21,6 +24,7 @@ import {
   cariArtikel,
   getTanyaCache,
   setTanyaCache,
+  listJawabanBaku,
 } from "./db";
 
 export type ModulSumber = "ayat" | "hadits" | "siroh" | "artikel";
@@ -43,6 +47,8 @@ export type HasilTanya = {
   jawaban: string;
   sumber: Sumber[];
   dariCache: boolean;
+  /** Benar bila jawaban berasal dari jawaban baku kurasi (bukan AI). */
+  dariBaku?: boolean;
 };
 
 export const MAKS_PANJANG_PERTANYAAN = 500;
@@ -53,7 +59,33 @@ export const BATAS_PER_HARI = 20;
 export const TIDAK_DITEMUKAN =
   "Tidak ditemukan jawaban di koleksi Siji Pangeling untuk pertanyaan ini. Coba kata kunci lain, atau buka langsung tab Al-Qur'an, Hadits, Siroh, dan Artikel.";
 
-export const PROMPT_SISTEM = `Kamu adalah penjawab di situs Siji Pangeling. Jawablah HANYA berdasarkan sumber-sumber di bawah ini. Setiap pernyataan faktual harus disertai kutipan sumbernya dengan format persis seperti yang diberikan (mis. QS. Al-Baqarah 2:153, HR. Bukhari No. 1). Jangan menambah nomor ayat, nomor hadits, atau isi yang tidak ada di sumber. Bila sumber tidak cukup untuk menjawab, katakan "Tidak ditemukan jawaban di koleksi Siji Pangeling untuk pertanyaan ini." Jangan mengeluarkan fatwa atau putusan hukum; untuk soal hukum, arahkan untuk bertanya ke ustadz atau ahli. Jawablah dalam Bahasa Indonesia, nada tenang dan sederhana, maksimal 250 kata.`;
+/**
+ * Instruksi cadangan bila prompts/sistem-tanya.md hilang atau kosong.
+ * Isinya SAMA dengan file itu — ubah instruksinya di file, bukan di sini,
+ * supaya yang dibaca Pak Gun dan yang dipakai server selalu satu sumber.
+ */
+const PROMPT_DEFAULT = `Kamu adalah penjawab di situs Siji Pangeling. Jawablah HANYA berdasarkan sumber-sumber di bawah ini. Setiap pernyataan faktual harus disertai kutipan sumbernya dengan format persis seperti yang diberikan (mis. QS. Al-Baqarah 2:153, HR. Bukhari No. 1). Jangan menambah nomor ayat, nomor hadits, atau isi yang tidak ada di sumber. Bila sumber tidak cukup untuk menjawab, katakan "Tidak ditemukan jawaban di koleksi Siji Pangeling untuk pertanyaan ini." Jangan mengeluarkan fatwa atau putusan hukum; untuk soal hukum, arahkan untuk bertanya ke ustadz atau ahli. Jawablah dalam Bahasa Indonesia, nada tenang dan sederhana, maksimal 250 kata.`;
+
+/**
+ * Muat system prompt dari prompts/sistem-tanya.md (dibaca saat server
+ * start). Komentar HTML di file itu dibuang. Bila file tidak ada, kosong,
+ * atau gagal dibaca, pakai PROMPT_DEFAULT dan catat peringatan.
+ */
+export function muatPromptSistem(): string {
+  const path = join(dirname(fileURLToPath(import.meta.url)), "..", "prompts", "sistem-tanya.md");
+  try {
+    const isi = readFileSync(path, "utf-8")
+      .replace(/<!--[\s\S]*?-->/g, "")
+      .trim();
+    if (isi) return isi;
+    console.warn("tanya: prompts/sistem-tanya.md kosong, memakai instruksi cadangan");
+  } catch {
+    console.warn("tanya: prompts/sistem-tanya.md tidak terbaca, memakai instruksi cadangan");
+  }
+  return PROMPT_DEFAULT;
+}
+
+export const PROMPT_SISTEM = muatPromptSistem();
 
 export function konfigurasiTanya() {
   return {
@@ -202,11 +234,55 @@ export function hashPertanyaan(pertanyaan: string): string {
   return createHash("sha256").update(pertanyaan.trim().toLowerCase()).digest("hex");
 }
 
+// ---------------------------------------------------------------------------
+// Jawaban baku (memory kurasi) — dicek SEBELUM cache dan SEBELUM AI.
+// Semua kata pemicu harus ada di pertanyaan (dicocokkan longgar: kata
+// pemicu "cinta" cocok dengan kata pertanyaan "dicintai"/"mencintai").
+// Bila beberapa entri cocok, yang pemicunya paling banyak (paling
+// spesifik) yang menang. Jawaban baku tidak ditulis ke tanya_cache:
+// ia sudah tersimpan di tabelnya sendiri.
+// ---------------------------------------------------------------------------
+function kataDariPemicu(pemicu: string): string[] {
+  return pemicu
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s,]/gu, " ")
+    .split(/[\s,]+/)
+    .filter((w) => w.length > 2);
+}
+
+export function cariJawabanBaku(
+  pertanyaan: string
+): { jawaban: string; sumber: Sumber[] } | null {
+  const kunci = kataKunci(pertanyaan);
+  if (!kunci.length) return null;
+  let terbaik: { baris: any; skor: number } | null = null;
+  for (const baris of listJawabanBaku()) {
+    const pemicu = kataDariPemicu(String(baris.pemicu ?? ""));
+    if (!pemicu.length) continue;
+    const cocok = pemicu.filter((p) => kunci.some((k) => k.includes(p) || p.includes(k)));
+    if (cocok.length !== pemicu.length) continue;
+    if (!terbaik || pemicu.length > terbaik.skor) terbaik = { baris, skor: pemicu.length };
+  }
+  if (!terbaik) return null;
+  let sumber: Sumber[] = [];
+  try {
+    sumber = JSON.parse(terbaik.baris.sumber ?? "[]");
+  } catch {
+    sumber = [];
+  }
+  return { jawaban: String(terbaik.baris.jawaban), sumber };
+}
+
 export async function jawabPertanyaan(pertanyaanMentah: string): Promise<HasilTanya> {
   const pertanyaan = pertanyaanMentah.trim();
   if (!pertanyaan) throw new Error("pertanyaan kosong");
   if (pertanyaan.length > MAKS_PANJANG_PERTANYAAN)
     throw new Error(`pertanyaan maks ${MAKS_PANJANG_PERTANYAAN} karakter`);
+  // Jawaban baku didahulukan atas cache: bila Pak Gun baru menambah
+  // jawaban baku untuk pertanyaan yang pernah dijawab AI, jawaban baku
+  // yang keluar — bukan jawaban AI lama dari cache.
+  const baku = cariJawabanBaku(pertanyaan);
+  if (baku) return { jawaban: baku.jawaban, sumber: baku.sumber, dariCache: false, dariBaku: true };
   const hash = hashPertanyaan(pertanyaan);
   const cache = getTanyaCache(hash);
   if (cache) {

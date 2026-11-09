@@ -199,6 +199,37 @@ Pengunjung → tab "Tanya Jawab" → POST /api/tanya
 4. **Disclaimer:** draf §2F di atas.
 5. **Rate limit:** 20 tanya/IP/hari + 5/IP/menit (§2C).
 
+## 6a. Lanjutan 2026-11-09 malam — prompt terpisah + jawaban baku
+
+Keputusan Pak Gun: system prompt dipindah ke file terpisah dan saran
+memory diikuti (mulai dari jawaban baku kurasi).
+
+- **Prompt terpisah:** `prompts/sistem-tanya.md` dibaca server saat
+  start (`muatPromptSistem()` di `src/tanya.ts`); komentar HTML di file
+  dibuang; bila file hilang/kosong, dipakai `PROMPT_DEFAULT` di kode.
+  Mengubah prompt = edit file + restart service siji. Skill.md ala agen
+  TIDAK dipakai: bot ini satu panggilan API tanpa alat, jadi tidak bisa
+  membaca skill.md — system prompt inilah "skill"-nya.
+- **Jawaban baku (memory kurasi):** tabel `jawaban_baku` (pertanyaan
+  unik, pemicu koma, jawaban, sumber JSON, aktif). Dicek SEBELUM cache
+  dan SEBELUM AI; semua kata pemicu harus ada di pertanyaan (cocok
+  longgar: pemicu "cinta" cocok dengan "dicintai"); bila beberapa entri
+  cocok, yang pemicunya terbanyak menang. Seed awal (3 entri: sabar,
+  ikhlas, ayat kursi) di `scripts/seed-jawaban-baku.ts` — teks ayat/hadits
+  diambil dari database, upsert berdasarkan pertanyaan, tidak perlu
+  restart. Jawaban baku ditandai "✦ Jawaban kurasi Pak Gun." di halaman
+  dan `dariBaku: true` di API.
+- **Yang ditunda (sesuai saran):** memory pertanyaan mirip (butuh
+  embedding — Fase 4) dan memory percakapan (riwayat per sesi).
+- **Catatan seed lokal:** database lokal hanya berisi ayat (hadits/siroh/
+  artikel kosong di clone ini; modul itu hanya ada di DB produksi VPS),
+  jadi 3 hadits entri ikhlas dilewati saat seed lokal dengan peringatan —
+  di VPS hadits itu ada dan akan ikut tersimpan.
+- **Uji:** 18/18 `bun test` lolos; E2E server asli vs stub 9router —
+  pertanyaan sabar dijawab baku tanpa memanggil AI (stub 0 hit), dan
+  log stub membuktikan system prompt yang terkirim berasal dari file
+  (`"Kamu adalah penjawab di situs Siji Pangeling. Jawablah HANYA..."`).
+
 ## 7. Perintah deploy (setelah build — jalankan di VPS)
 
 ```bash
@@ -216,6 +247,10 @@ cd /opt/pangeling/siji
 
 # 3. Deploy Siji seperti biasa:
 ./scripts/deploy.sh
+
+# 4. Seed jawaban baku (sekali saja setelah deploy pertama yang memuatnya;
+#    jalankan ulang setiap kali scripts/seed-jawaban-baku.ts diubah):
+bun run seed:jawaban-baku
 
 # 4. Uji live:
 curl -X POST http://127.0.0.1:3001/api/tanya \

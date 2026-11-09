@@ -443,7 +443,8 @@ $("formTanya").addEventListener("submit", async (e) => {
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
-    $("tanyaJawaban").innerHTML = `<article class="card"><div class="isi">${br(j.jawaban)}</div></article>`;
+    const labelBaku = j.dariBaku ? '<p class="catatan">✦ Jawaban kurasi Pak Gun.</p>' : "";
+    $("tanyaJawaban").innerHTML = `<article class="card">${labelBaku}<div class="isi">${br(j.jawaban)}</div></article>`;
     // Bila jawabannya "tidak ditemukan", kartu sumber tidak ditampilkan
     // — menampilkannya membuat ayat yang lemah kecocokannya tampak
     // seperti jawaban. (Server juga sudah mengosongkan sumber untuk

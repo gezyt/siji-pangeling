@@ -605,3 +605,47 @@ export function setTanyaCache(hash: string, pertanyaan: string, jawaban: string)
 export function bersihkanTanyaCache(): void {
   db.query("DELETE FROM tanya_cache WHERE created_at < datetime('now', '-7 days')").run();
 }
+
+// ---------------------------------------------------------------------------
+// Jawaban baku (memory kurasi).
+// Jawaban yang ditulis/dis setujui Pak Gun untuk pertanyaan yang sering
+// masuk. Dicek SEBELUM cache dan SEBELUM memanggil AI: bila cocok,
+// jawaban baku yang keluar — tanpa biaya AI, tanpa risiko AI salah
+// merangkai. `pemicu` = kata-kata kunci (dipisah koma) yang semuanya
+// harus ada di pertanyaan; makin banyak pemicunya, makin spesifik.
+// `sumber` = JSON array objek Sumber (modul, rujukan, teks, + petunjuk
+// buka-di-modul), supaya kartu sumber di frontend bekerja sama seperti
+// jawaban AI. Isi awal lewat scripts/seed-jawaban-baku.ts; menambah
+// atau mengubah entri = ubah skrip itu lalu jalankan ulang (upsert
+// berdasarkan `pertanyaan`, jadi entri lama diperbarui, bukan ganda).
+// ---------------------------------------------------------------------------
+db.exec(`
+CREATE TABLE IF NOT EXISTS jawaban_baku (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  pertanyaan TEXT NOT NULL UNIQUE,
+  pemicu TEXT NOT NULL,
+  jawaban TEXT NOT NULL,
+  sumber TEXT NOT NULL DEFAULT '[]',
+  aktif INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+`);
+
+export function listJawabanBaku(): any[] {
+  return db
+    .query("SELECT * FROM jawaban_baku WHERE aktif = 1 ORDER BY id ASC")
+    .all() as any[];
+}
+
+export function upsertJawabanBaku(
+  pertanyaan: string,
+  pemicu: string,
+  jawaban: string,
+  sumberJson: string
+): void {
+  db.query(
+    "INSERT INTO jawaban_baku (pertanyaan, pemicu, jawaban, sumber) VALUES (?, ?, ?, ?) " +
+      "ON CONFLICT(pertanyaan) DO UPDATE SET pemicu = excluded.pemicu, jawaban = excluded.jawaban, sumber = excluded.sumber, aktif = 1, updated_at = datetime('now')"
+  ).run(pertanyaan, pemicu, jawaban, sumberJson);
+}
