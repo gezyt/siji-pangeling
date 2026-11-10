@@ -183,6 +183,16 @@
     <input id="ayatNo" type="number" min="1" inputmode="numeric" placeholder="No." aria-label="Nomor ayat">
     <button id="bukaAyat" class="btn" type="button">Buka</button>
   </div>
+  <div class="surah" id="kitabWrap" hidden>
+    <label for="kitab">Kitab:</label>
+    <select id="kitab" aria-label="Pilih kitab">
+      <option value="">Semua kitab</option>
+      <option>Sahih al-Bukhari</option>
+      <option>Sahih Muslim</option>
+      <option>Sunan Abu Dawud</option>
+      <option>Sunan at-Tirmidzi</option>
+    </select>
+  </div>
   <section id="tanyaWrap" hidden aria-label="Tanya jawab">
     <form class="search" id="formTanya">
       <input id="tanyaQ" type="search" placeholder="Tanyakan sesuatu… (mis. apa yang Al-Qur'an katakan tentang sabar?)" autocomplete="off" aria-label="Pertanyaan untuk tanya jawab">
@@ -236,7 +246,7 @@ const MODUL = {
   // sendiri (form + jawaban + kartu sumber), bukan muat() daftar.
   tanya:   { label: "Tanya Jawab", endpoint: "/api/tanya", kosong: "", tanya: true },
 };
-let state = { modul: "ayat", q: "", surah: "", ayat: "", offset: 0, total: null, memuat: false, adaLagi: false };
+let state = { modul: "ayat", q: "", surah: "", ayat: "", kitab: "", offset: 0, total: null, memuat: false, adaLagi: false };
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -289,7 +299,7 @@ function kartuAyat(a) {
     <div class="isi">${br(a.terjemahan)}</div>
     <div class="meta">
       ${tags([a.sumber, ...(a.tag || "").split(",").map((t) => t.trim())])}
-      <button class="detail-btn" type="button">Tafsir &amp; per kata</button>
+      <button class="detail-btn" type="button">Tafsir</button>
       ${tombolSalin(a.verse_key + " — " + a.surah_nama + "\n\n" + a.arab + "\n\n" + a.terjemahan)}
     </div>
     <div class="detail" hidden></div>
@@ -350,11 +360,11 @@ function namaSurah(no) {
   const s = daftarSurah.find((x) => String(x.surah_no) === String(no));
   return s ? s.surah_nama : ("Surah " + no);
 }
-// P5-A: placeholder kolom cari mengikuti filter surah yang aktif.
+// P5-A/P6-B: placeholder kolom cari mengikuti filter yang aktif.
 function perbaruiPlaceholder() {
-  $("q").placeholder = state.modul === "ayat" && state.surah
-    ? `Cari di ${namaSurah(state.surah)}… (mis. sabar)`
-    : `Cari di ${MODUL[state.modul].label}… (mis. sabar)`;
+  if (state.modul === "ayat" && state.surah) $("q").placeholder = `Cari di ${namaSurah(state.surah)}… (mis. sabar)`;
+  else if (state.modul === "hadits" && state.kitab) $("q").placeholder = `Cari di ${state.kitab}… (mis. sabar)`;
+  else $("q").placeholder = `Cari di ${MODUL[state.modul].label}… (mis. sabar)`;
 }
 
 async function muat(ulang) {
@@ -397,6 +407,7 @@ async function muat(ulang) {
     const p = new URLSearchParams({ limit: String(LIMIT), offset: String(state.offset) });
     if (state.q) p.set("q", state.q);
     if (state.modul === "ayat" && state.surah) p.set("surah", state.surah);
+    if (state.modul === "hadits" && state.kitab) p.set("kitab", state.kitab);
     let data, total = null;
     if (state.q) {
       // Cari per modul mengembalikan array, seperti /api/cari lama.
@@ -413,14 +424,17 @@ async function muat(ulang) {
     if (!data.length && ulang) {
       if (state.q) {
         // P5-C: pesan kosong yang membantu — ikon + tombol Tanya.
-        // P5-A: bila filter surah aktif, sebut surahnya dan tawarkan
-        // cari di semua surah (jangan biarkan pengguna mengira
+        // P5-A/P6-B: bila filter surah/kitab aktif, sebut cakupannya
+        // dan tawarkan cari di semua (jangan biarkan pengguna mengira
         // tidak ada hasil sama sekali).
         const diSurah = state.modul === "ayat" && state.surah;
-        const cakupan = diSurah ? ` di ${esc(namaSurah(state.surah))}` : ` di ${m.label}`;
-        const tombolSurah = diSurah
-          ? ` <button class="btn" type="button" id="kosongSemuaSurah">Cari di semua surah</button>` : "";
-        $("hasil").innerHTML = `<div class="kosong">🔍<br>Tidak ditemukan untuk “${esc(state.q)}”${cakupan}. Coba kata lain, atau tanyakan lewat Tanya Jawab.<br><button class="btn" type="button" id="kosongKeTanya">Tanyakan lewat Tanya Jawab</button>${tombolSurah}</div>`;
+        const diKitab = state.modul === "hadits" && state.kitab;
+        const cakupan = diSurah ? ` di ${esc(namaSurah(state.surah))}` : diKitab ? ` di ${esc(state.kitab)}` : ` di ${m.label}`;
+        const tombolFilter = diSurah
+          ? ` <button class="btn" type="button" id="kosongSemuaSurah">Cari di semua surah</button>`
+          : diKitab
+          ? ` <button class="btn" type="button" id="kosongSemuaKitab">Cari di semua kitab</button>` : "";
+        $("hasil").innerHTML = `<div class="kosong">🔍<br>Tidak ditemukan untuk “${esc(state.q)}”${cakupan}. Coba kata lain, atau tanyakan lewat Tanya Jawab.<br><button class="btn" type="button" id="kosongKeTanya">Tanyakan lewat Tanya Jawab</button>${tombolFilter}</div>`;
       } else {
         $("hasil").innerHTML = `<div class="kosong">${esc(m.kosong)}</div>`;
       }
@@ -428,21 +442,27 @@ async function muat(ulang) {
       $("hasil").insertAdjacentHTML("beforeend", data.map(KARTU[state.modul]).join(""));
     }
     state.offset += data.length;
-    if (state.q && state.modul === "ayat" && state.surah) {
-      // P5-A: filter surah aktif — tulis cakupannya di baris hitungan
-      // dan tawarkan sekali ketuk untuk cari di semua surah.
-      const nama = namaSurah(state.surah);
-      const qSaatItu = state.q, surahSaatItu = state.surah;
+    const cakupanAktif = state.q && ((state.modul === "ayat" && state.surah) || (state.modul === "hadits" && state.kitab));
+    if (cakupanAktif) {
+      // P5-A/P6-B: filter surah/kitab aktif — tulis cakupannya di
+      // baris hitungan dan tawarkan sekali ketuk untuk cari di semua.
+      const diSurah = state.modul === "ayat";
+      const nama = diSurah ? namaSurah(state.surah) : state.kitab;
+      const kunciTotal = diSurah ? "ayat" : "hadits";
+      const labelSemua = diSurah ? "surah" : "kitab";
+      const tombolId = diSurah ? "cariSemuaSurah" : "cariSemuaKitab";
+      const qSaatItu = state.q, filterSaatItu = diSurah ? state.surah : state.kitab;
       $("hitung").innerHTML = (data.length || !ulang
-        ? `Menampilkan ${state.offset} hasil untuk “${esc(state.q)}” di ${esc(nama)} <span class="hitung-total"></span>. <button type="button" class="tautan" id="cariSemuaSurah">Cari di semua surah</button>`
+        ? `Menampilkan ${state.offset} hasil untuk “${esc(state.q)}” di ${esc(nama)} <span class="hitung-total"></span>. <button type="button" class="tautan" id="${tombolId}">Cari di semua ${labelSemua}</button>`
         : "");
       // Total tanpa filter (dari /api/cari-semua) — bila gagal, baris
       // hitungan tetap benar tanpa bagian "(dari …)".
       ambil(`/api/cari-semua?q=${encodeURIComponent(state.q)}&limit=1`).then((j) => {
-        if (state.q !== qSaatItu || state.surah !== surahSaatItu) return;
-        const totalSemua = (j.total && j.total.ayat) || 0;
+        const filterKini = diSurah ? state.surah : state.kitab;
+        if (state.q !== qSaatItu || filterKini !== filterSaatItu) return;
+        const totalSemua = (j.total && j.total[kunciTotal]) || 0;
         const el = document.querySelector("#hitung .hitung-total");
-        if (el && totalSemua) el.textContent = `(dari ${totalSemua} di semua surah)`;
+        if (el && totalSemua) el.textContent = `(dari ${totalSemua} di semua ${labelSemua})`;
       }).catch(() => {});
     } else {
       $("hitung").textContent = state.q
@@ -474,10 +494,11 @@ function pilihModul(kunci, jagaState) {
   state.modul = kunci;
   if (!jagaState) {
     // P5-B: kata kunci dipertahankan saat pindah tab — pindah tab
-    // langsung mencari kata yang sama di modul baru. Surah/ayat
-    // (spesifik tab Al-Qur'an) tetap diosongkan.
+    // langsung mencari kata yang sama di modul baru. Surah/ayat/
+    // kitab (spesifik tabnya masing-masing) tetap diosongkan.
     state.surah = ""; $("surah").value = "";
     state.ayat = ""; $("ayatNo").value = "";
+    state.kitab = ""; $("kitab").value = "";
   }
   $("q").value = state.q;
   $("tabs").querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x.dataset.modul === kunci)));
@@ -485,6 +506,7 @@ function pilihModul(kunci, jagaState) {
   const tanya = MODUL[kunci].tanya === true;
   $("formCari").style.display = tanya ? "none" : "";
   $("surahWrap").hidden = state.modul !== "ayat";
+  $("kitabWrap").hidden = state.modul !== "hadits";
   $("tanyaWrap").hidden = !tanya;
   $("hasil").style.display = tanya ? "none" : "";
   document.querySelector(".lebih").style.display = tanya ? "none" : "";
@@ -556,6 +578,7 @@ async function jalankanCariSemua(q) {
   // pencarian per modul, peta Siroh, dan panel Tanya.
   $("formCari").style.display = "none";
   $("surahWrap").hidden = true;
+  $("kitabWrap").hidden = true;
   $("tanyaWrap").hidden = true;
   $("petaSiroh").style.display = "none";
   $("hasil").style.display = "";
@@ -640,6 +663,7 @@ function terapkanHash() {
     $("q").value = state.q;
     $("surah").value = state.surah;
     $("ayatNo").value = state.ayat;
+    $("kitab").value = state.kitab;
   } finally {
     menerapkanHash = false;
   }
@@ -658,6 +682,7 @@ async function muatAwal() {
       `<option value="${s.surah_no}">${s.surah_no}. ${esc(s.surah_nama)} (${s.jumlah})</option>`).join("");
   } catch { $("surah").innerHTML = `<option value="">Semua surah</option>`; }
   $("surahWrap").hidden = state.modul !== "ayat";
+  $("kitabWrap").hidden = state.modul !== "hadits";
   // Buka sesuai alamat (#ayat/2/255, #tanya?q=..., atau tanpa hash
   // berarti tab Al-Qur'an seperti biasa).
   terapkanHash();
@@ -681,6 +706,13 @@ $("formCari").addEventListener("submit", (e) => {
 $("surah").addEventListener("change", (e) => {
   state.surah = e.target.value;
   state.ayat = $("ayatNo").value.trim();
+  perbaruiPlaceholder();
+  muat(true);
+  tulisHash();
+});
+// P6-B: pemilih kitab — cerminan pemilih surah di tab Hadits.
+$("kitab").addEventListener("change", (e) => {
+  state.kitab = e.target.value;
   perbaruiPlaceholder();
   muat(true);
   tulisHash();
@@ -713,10 +745,13 @@ $("ayatNo").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); bukaAyatTertentu(); }
 });
 $("lebih").addEventListener("click", () => muat(false));
-// P5-A: tombol "Cari di semua surah" di baris hitungan.
+// P5-A/P6-B: tombol "Cari di semua surah/kitab" di baris hitungan.
 $("hitung").addEventListener("click", (e) => {
-  if (!e.target.closest("#cariSemuaSurah")) return;
-  state.surah = ""; $("surah").value = "";
+  if (e.target.closest("#cariSemuaSurah")) {
+    state.surah = ""; $("surah").value = "";
+  } else if (e.target.closest("#cariSemuaKitab")) {
+    state.kitab = ""; $("kitab").value = "";
+  } else return;
   perbaruiPlaceholder();
   muat(true);
   tulisHash();
@@ -756,13 +791,17 @@ $("hasil").addEventListener("click", async (e) => {
   const lihat = e.target.closest(".lihat-semua");
   if (lihat) {
     // Pindah ke tab modul itu dengan kata kunci yang sama: isi state
-    // dulu (dan kosongkan surah/ayat supaya tidak membuka satu ayat),
-    // lalu pilihModul dengan jagaState supaya muat() di dalamnya
-    // memakai kata kunci ini, bukan hasil kosong tab sebelumnya.
+    // dulu (dan kosongkan surah/ayat/kitab supaya tidak membuka satu
+    // ayat atau menyaring kitab lama), lalu pilihModul dengan
+    // jagaState supaya muat() di dalamnya memakai kata kunci ini,
+    // bukan hasil kosong tab sebelumnya. Input filter diselaraskan
+    // juga — tanpa ini dropdown bisa menampilkan pilihan lama
+    // sementara pencariannya sudah mencakup semua.
     state.q = cariSemuaQ;
-    state.surah = ""; state.ayat = "";
+    state.surah = ""; state.ayat = ""; state.kitab = "";
     pilihModul(lihat.dataset.modul, true);
     $("q").value = state.q;
+    $("surah").value = ""; $("ayatNo").value = ""; $("kitab").value = "";
     tulisHash();
     return;
   }
@@ -781,6 +820,14 @@ $("hasil").addEventListener("click", async (e) => {
     tulisHash();
     return;
   }
+  const semuaKitab = e.target.closest("#kosongSemuaKitab");
+  if (semuaKitab) {
+    state.kitab = ""; $("kitab").value = "";
+    perbaruiPlaceholder();
+    muat(true);
+    tulisHash();
+    return;
+  }
   const salin = e.target.closest(".salin");
   if (salin) {
     try { await navigator.clipboard.writeText(salin.dataset.salinan); salin.textContent = "Tersalin ✓"; }
@@ -792,7 +839,7 @@ $("hasil").addEventListener("click", async (e) => {
   if (!detailBtn) return;
   const card = detailBtn.closest(".card");
   const wadah = card.querySelector(".detail");
-  if (!wadah.hidden) { wadah.hidden = true; detailBtn.textContent = "Tafsir & per kata"; return; }
+  if (!wadah.hidden) { wadah.hidden = true; detailBtn.textContent = "Tafsir"; return; }
   wadah.hidden = false;
   detailBtn.textContent = "Tutup detail";
   wadah.innerHTML = '<div class="kosong" style="padding:1rem">Memuat detail…</div>';
@@ -803,7 +850,7 @@ $("hasil").addEventListener("click", async (e) => {
     const kata = (d.kata || []).length
       ? `<h4>Terjemah per kata</h4><div class="kata">${d.kata.map((k) => `<span><b dir="rtl" lang="ar">${esc(k.arab)}</b> — ${esc(k.arti)}</span>`).join("")}</div>`
       : "";
-    wadah.innerHTML = (tafsir + kata) || '<div class="kosong" style="padding:1rem">Tafsir bertingkat dan terjemah per kata untuk ayat ini belum tersedia. Keduanya disiapkan pada fase tafsir berikutnya.</div>';
+    wadah.innerHTML = (tafsir + kata) || '<div class="kosong" style="padding:1rem">Terjemah per kata untuk ayat ini belum tersedia.</div>';
   } catch {
     wadah.innerHTML = '<div class="error" style="padding:1rem">Gagal memuat detail.</div>';
   }

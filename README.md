@@ -175,6 +175,38 @@ totalnya 91, tanpa label cakupan. Perbaikannya:
   pengelola `gunanto1010@gmail.com` (boleh dipublikasikan,
   dikonfirmasi Pak Gun 2026-11-10) di samping tautan blog.
 
+### Perbaikan audit eksternal putaran 3 (P6, 2026-11-10)
+
+Audit putaran 3 (8,0/10, naik dari 7,6) memuji P5, tapi mencatat
+satu langkah mundur kejujuran label dan satu ketimpangan filter:
+
+- **Label "per kata" (P6-A):** tombol detail ayat "Tafsir & per
+  kata" menjanjikan terjemah per kata, padahal tabel `kata` masih
+  kosong — tombol kini hanya **"Tafsir"**. Pesan kosong yang basi
+  ("tafsir … belum tersedia", padahal tafsir sudah ada sejak P2)
+  diganti "Terjemah per kata untuk ayat ini belum tersedia."
+  Judul `<h4>Terjemah per kata</h4>` dibiarkan: ia hanya tampil
+  bila data `kata` ada (suatu saat diimpor). Mengimpor terjemah
+  per kata 6.236 ayat adalah proyek data tersendiri, bukan P6.
+- **Pemilih kitab (P6-B):** tab Hadits kini punya dropdown Kitab
+  ("Semua kitab" + 4 kitab), cerminan pemilih surah — memakai
+  `?kitab=` yang sudah didukung backend sejak lama. Placeholder
+  ("Cari di Sahih al-Bukhari…"), baris hitungan ("…di Sahih
+  al-Bukhari (dari N di semua kitab)" + tombol "Cari di semua
+  kitab"), dan pesan kosong mengikuti pola P5-A/P5-C. Catatan:
+  pemilih kitab tidak pernah ada di UI (dicek seluruh riwayat
+  git) — audit menulis "hilang", yang tepat adalah "belum pernah
+  ada". Sambil jalan diperbaiki satu celah lama: handler "Lihat
+  semua" kini menyelaraskan juga input filter (sebelumnya
+  dropdown bisa menampilkan pilihan lama sementara pencarian
+  sudah mencakup semua).
+- **Uji:** 38/38 `bun test` (tanpa perubahan backend); `node
+  --check` kedua blok script; E2E server lokal (penanda
+  kitabWrap, tombol-tombol baru, tombol "Tafsir"); filter kitab
+  diverifikasi live: Bukhari 6.858, Muslim 4.927, Abu Dawud
+  4.406, Tirmidzi 3.540 (total 19.731), cari "sabar" di Bukhari
+  mengembalikan hanya hadits Bukhari.
+
 Satu halaman `public/index.html` dengan tab per modul, bukan lagi
 daftar generik dari tabel `konten`:
 

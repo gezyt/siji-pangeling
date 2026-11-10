@@ -628,6 +628,43 @@ ada mailto/form di Tentang). Rencana P5 disetujui Pak Gun
 - **Deploy di VPS:** `./scripts/deploy.sh` saja (tanpa impor/seed
   — P5 murni frontend).
 
+## 6k. Lanjutan 2026-11-10 siang — perbaikan audit putaran 3 (P6)
+
+Audit putaran 3 (8,0/10, dari 7,6): P5 dikreditkan (Search 8,3;
+Interaksi 7,4; Aksesibilitas 7,0; Visual 7,7). Dua catatan:
+
+- **P6-A label "per kata" (Kepercayaan 8,0 → 7,9):** tombol
+  detail ayat "Tafsir & per kata" menjanjikan terjemah per kata,
+  padahal tabel `kata` kosong. Perbaikan: tombol (HTML + label
+  tutup-kembali) jadi "Tafsir"; pesan kosong jadi "Terjemah per
+  kata untuk ayat ini belum tersedia." (sebelumnya mengklaim
+  tafsir pun belum tersedia — basi sejak P2). `<h4>Terjemah per
+  kata</h4>` dibiarkan: hanya tampil bila `d.kata` ada.
+- **P6-B pemilih kitab (Arsitektur Informasi 7,8, datar):**
+  dropdown `#kitabWrap` (kelas `.surah` yang sama, jadi tanpa CSS
+  baru) di tab Hadits: "Semua kitab" + 4 kitab persis nama di
+  kolom DB. `state.kitab` baru; `muat()` mengirim `?kitab=`
+  (backend sudah mendukung); `pilihModul` menampilkan/
+  mengosongkan seperti surah; placeholder + baris hitungan +
+  pesan kosong mengikuti pola P5-A/P5-C (total tanpa filter dari
+  `/api/cari-semua`, tombol "Cari di semua kitab" di `#hitung`
+  dan di pesan kosong). Hash tidak diubah (filter surah pun tidak
+  masuk hash; hanya deep link `#ayat/2/255` dan `#hadits/
+  Bukhari/1` yang ada). Verifikasi riwayat: pemilih kitab tidak
+  pernah ada di UI — "hilang" di audit tidak tepat, yang benar
+  "belum pernah ada". Drive-by fix: handler "Lihat semua" kini
+  menyelaraskan input filter (`surah`/`ayatNo`/`kitab`) — tanpa
+  ini dropdown bisa menampilkan pilihan lama sementara pencarian
+  sudah mencakup semua (celah P3).
+- **Uji:** 38/38 `bun test`; `node --check` kedua blok script;
+  E2E server lokal (penanda kitabWrap, tombol baru, "Tafsir");
+  filter kitab diverifikasi live: 6858/4927/4406/3540 (total
+  19.731); cari "sabar" + kitab Bukhari hanya mengembalikan
+  Bukhari. `bun check` tetap 12 galat lama. Tanpa perubahan
+  backend.
+- **Deploy di VPS:** `./scripts/deploy.sh` saja (tanpa impor/seed
+  — P6 murni frontend).
+
 ## 7. Perintah deploy (setelah build — jalankan di VPS)
 
 ```bash
