@@ -186,6 +186,11 @@ const PETA_KONSEP: Record<string, string[]> = {
   // (HR. Muslim No. 213). Tanpa peta ini pertanyaan tentang korupsi
   // hanya menemukan ayat-ayat "mencari" (dari "carikan" -> "cari").
   korupsi: ["mencuri", "suap", "khianat", "harta", "batil", "amanah", "amanat"],
+  // "suap" tidak menemukan hadits laknat penyuap yang paling
+  // terkenal (Abu Dawud No. 3580) karena matannya memakai kata
+  // "sogokan" ("memberi uang sogokan"), bukan "suap". Hanya 1
+  // hadits di koleksi yang memakai kata itu.
+  suap: ["sogokan"],
 };
 
 export function perluasKataKunci(kunci: string[]): string[] {

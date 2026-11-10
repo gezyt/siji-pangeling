@@ -377,6 +377,44 @@ Atas audit 6,4/10 dan lampu hijau Pak Gun ("lanjut aja codingnya"):
   bagikan = pertanyaan + jawaban (dipotong 400 karakter) + tautan
   balik `#tanya?q=...`.
 
+## 6e. Lanjutan 2026-11-10 siang — perluasan hadits (P2, Abu Dawud + Tirmidzi)
+
+Atas pilihan Pak Gun ("Bangun perluasan hadits"):
+
+- **Impor** (`scripts/import-hadits.ts`): dua kitab ditambah ke
+  `KITAB` — Sunan Abu Dawud 4406 hadits, Sunan at-Tirmidzi 3540
+  hadits (terverifikasi impor lokal ke DB salinan; total VPS
+  menjadi 19731 = 11785 + 4406 + 3540). Nama kitab memakai nama
+  Indonesia yang umum ("Sunan at-Tirmidzi", bukan "Jami At
+  Tirmidhi" dari sumber). Perintah default `bun run import:hadits`
+  kini mengimpor keempat kitab (yang sudah ada dilewati).
+- **Status jujur per kitab:** `status_sanad` kini diambil dari
+  entri `KITAB`, bukan hardcode 'sahih' — 'sahih' hanya untuk
+  Bukhari/Muslim; Sunan memakai 'belum-diverifikasi' (kitab Sunan
+  berisi beragam grade, grade per hadits kosong di sumber).
+  `bun check` turun 14 -> 12 galat (2 galat lama import-hadits
+  ikut hilang karena guard `if (!entri)`).
+- **Hadits laknat penyuap terverifikasi:** Abu Dawud No. 3580
+  ("memberi uang sogokan") dan Tirmidzi No. 1337/1336
+  ("melaknati penyuap dan yang disuap") tersimpan dengan benar.
+  Retrieval: "hadits tentang suap" mengembalikan 1336, 3580,
+  1858; "Rasulullah melaknat penyuap" mengembalikan 1337 pertama.
+- **Peta konsep `suap -> sogokan`:** matan 3580 memakai kata
+  "sogokan", bukan "suap" — hanya 1 hadits di koleksi yang
+  memakai kata itu. Tanpa peta ini 3580 tidak terambil untuk
+  pertanyaan suap.
+- **Keterbatasan:** kata "suap" ambigu — "suapan" (sesuap
+  makanan) ikut cocok di hadits makanan (Tirmidzi 1858, Abu
+  Dawud 3846); hadits laknat tetap teratas karena
+  "melaknati"/"penyuap" lebih langka. Perbaikan pencocokan
+  batas kata ditunda.
+- **Uji:** 29/29 `bun test` lolos (1 uji baru: pertanyaan suap
+  menemukan 3580 + 1337/1336; tanpa regresi).
+- **Deploy di VPS:** `./scripts/deploy.sh` lalu
+  `bun run import:hadits` (mengimpor Abu Dawud + Tirmidzi;
+  Bukhari/Muslim dilewati karena sudah ada; tanpa restart —
+  server membaca DB per permintaan).
+
 ## 7. Perintah deploy (setelah build — jalankan di VPS)
 
 ```bash

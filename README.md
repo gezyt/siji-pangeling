@@ -219,15 +219,41 @@ Kejujuran status yang wajib dibaca sebelum memakai data ini:
   Bukhari tidak punya judul bab di sumber (kategori NULL).
 
 ```bash
-bun run import:hadits                 # Bukhari + Muslim, lewati kitab yang sudah ada
-bun run import:hadits -- --kitab=bukhari
-bun run import:hadits -- --reset      # hapus dulu kedua kitab ini, impor ulang
+bun run import:hadits                 # semua kitab, lewati kitab yang sudah ada
+bun run import:hadits -- --kitab=abudawud
+bun run import:hadits -- --reset      # hapus dulu kitab yang dipilih, impor ulang
 SIJI_DB=/tmp/uji.db bun run import:hadits
 ```
 
 Di VPS, impor dijalankan sekali dari root repo setelah deploy
 kode ini (data tidak ikut repo, jadi impor di VPS terpisah
 dari impor uji lokal), lalu restart service bila perlu.
+
+## Perluasan hadits: Abu Dawud + Tirmidzi (2026-11-10)
+
+Sumber yang sama (fawazahmed0/hadith-api). Yang diimpor:
+Abu Dawud 4406, Tirmidzi 3540 — total hadits menjadi 19731
+(11785 + 4406 + 3540). Hadits laknat penyuap terverifikasi ada:
+Abu Dawud No. 3580 dan Tirmidzi No. 1337 (juga 1336).
+
+Kejujuran status untuk kitab baru: `status_sanad` ditulis
+per kitab — 'sahih' hanya untuk Bukhari/Muslim (status kitab
+Sahih); Sunan Abu Dawud dan Sunan at-Tirmidzi memakai
+'belum-diverifikasi' (kitab Sunan berisi hadits dengan beragam
+grade, dan grade per hadits kosong di sumber). Menulis 'sahih'
+untuk Sunan adalah klaim palsu. Nama kitab memakai nama
+Indonesia yang umum ("Sunan at-Tirmidzi", bukan nama formal
+sumber "Jami At Tirmidhi").
+
+Satu celah kata yang ikut diperbaiki: matan Abu Dawud 3580
+memakai kata "sogokan", bukan "suap" ("memberi uang sogokan"),
+sehingga pertanyaan tentang suap tidak menemukannya. Peta
+konsep di `src/tanya.ts` ditambah `suap -> sogokan` (hanya 1
+hadits di koleksi yang memakai kata itu). Catatan: kata "suap"
+juga ambigu — "suapan" (sesuap makanan) ikut cocok di hadits
+tentang makanan (mis. Tirmidzi 1858, Abu Dawud 3846); hadits
+laknat penyuap tetap di peringkat teratas karena kata
+"melaknati"/"penyuap" lebih langka.
 
 ## Siroh pilot: timeline Hijrah + peta skematis (fase 6)
 

@@ -101,6 +101,19 @@ beforeAll(() => {
   db.query(
     "INSERT INTO hadits (kitab, no_hadits, matan_id, perawi, status_sanad) VALUES (?, ?, ?, ?, ?)"
   ).run("Bukhari", "1", "Sesungguhnya amal itu tergantung niatnya.", "Umar bin Khattab", "sahih");
+  // Hadits laknat penyuap (perluasan 2026-11-10): 3580 memakai kata
+  // "sogokan", bukan "suap" — dipakai uji peta konsep suap->sogokan.
+  // Status 'belum-diverifikasi' seperti impor asli (kitab Sunan,
+  // grade per hadits kosong di sumber).
+  db.query(
+    "INSERT INTO hadits (kitab, no_hadits, matan_id, perawi, status_sanad) VALUES (?, ?, ?, ?, ?)"
+  ).run("Sunan Abu Dawud", "3580", "Rasulullah shallallahu 'alaihi wasallam melaknat orang yang memberi uang sogokan dan orang yang menerimanya.", "Abdullah bin 'Amru", "belum-diverifikasi");
+  db.query(
+    "INSERT INTO hadits (kitab, no_hadits, matan_id, perawi, status_sanad) VALUES (?, ?, ?, ?, ?)"
+  ).run("Sunan at-Tirmidzi", "1337", "Rasulullah shallallahu 'alaihi wasallam melaknati penyuap dan yang disuap. Abu Isa berkata; Hadits ini hasan shahih.", "Abdullah bin Umar", "belum-diverifikasi");
+  db.query(
+    "INSERT INTO hadits (kitab, no_hadits, matan_id, perawi, status_sanad) VALUES (?, ?, ?, ?, ?)"
+  ).run("Sunan at-Tirmidzi", "1336", "Rasulullah shallallahu 'alaihi wasallam melaknati penyuap dan yang disuap.", "Abu Hurairah", "belum-diverifikasi");
   db.query(
     "INSERT INTO siroh (urutan, judul, peristiwa, hikmah) VALUES (?, ?, ?, ?)"
   ).run(7, "Hijrah ke Madinah", "Nabi Muhammad hijrah dari Makkah ke Madinah.", "Hijrah adalah perpindahan menuju kebaikan.");
@@ -259,6 +272,16 @@ test("cariSumber: pertanyaan korupsi menemukan ayat-ayat unsurnya", () => {
   for (const target of ["2:188", "5:38", "3:161", "4:58"]) {
     expect(rujukan.some((r) => r.includes(target))).toBe(true);
   }
+});
+
+test("cariSumber: pertanyaan suap menemukan hadits laknat penyuap", () => {
+  const sumber = tanya.cariSumber("hadits tentang suap");
+  const hadits = sumber.filter((s) => s.modul === "hadits").slice(0, 3);
+  const rujukan = hadits.map((h) => h.rujukan);
+  // 3580 memakai kata "sogokan" (bukan "suap") — hanya terambil
+  // lewat peta konsep suap -> sogokan.
+  expect(rujukan.some((r) => r.includes("3580"))).toBe(true);
+  expect(rujukan.some((r) => r.includes("1337") || r.includes("1336"))).toBe(true);
 });
 
 test("cariJawabanBaku: entri korupsi cocok dengan pertanyaannya", () => {

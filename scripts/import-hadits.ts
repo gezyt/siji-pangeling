@@ -1,5 +1,6 @@
-// Impor hadits pilot: Sahih al-Bukhari + Sahih Muslim dari
-// fawazahmed0/hadith-api (lewat jsDelivr CDN, tanpa API key).
+// Impor hadits: Sahih al-Bukhari + Sahih Muslim (pilot) dan
+// Sunan Abu Dawud + Sunan at-Tirmidzi (perluasan 2026-11-10),
+// dari fawazahmed0/hadith-api (lewat jsDelivr CDN, tanpa API key).
 //
 // Keputusan sumber (audit 2026-10-30, dipilih Pak Gun):
 // - Sutanlab dicoret sementara: API-nya gagal DNS saat diaudit.
@@ -8,14 +9,21 @@
 // - fawazahmed0 terverifikasi live: edisi Indonesian ada untuk
 //   keenam kitab utama, sampel ind-bukhari/1 dan ind-muslim/1
 //   terbaca, struktur ara/ind identik (hadithnumber sama).
+// - Perluasan 2026-11-10 memakai sumber yang sama: edisi
+//   ind-abudawud dan ind-tirmidhi terverifikasi ada, termasuk
+//   hadits laknat penyuap (Abu Dawud No. 3580, Tirmidzi No. 1337).
 //
 // Aturan impor yang jujur (jangan dilunakkan di laporan):
 // - matan_arab dari edisi ara-*, matan_id dari edisi ind-*.
 //   Keduanya dicocokkan per hadithnumber, bukan per urutan file.
 // - grades per hadits di sumber ini KOSONG (terverifikasi di
-//   sampel). status_sanad='sahih' di sini BUKAN grade per hadits,
-//   melainkan status kitab Sahih al-Bukhari / Sahih Muslim.
-//   Itu ditulis eksplisit di kolom sumber tiap baris.
+//   sampel). Karena itu status_sanad ditulis PER KITAB:
+//   'sahih' hanya untuk Sahih al-Bukhari / Sahih Muslim (status
+//   kitab Sahih, bukan grade per hadits); 'belum-diverifikasi'
+//   untuk Sunan Abu Dawud / Sunan at-Tirmidzi (kitab Sunan berisi
+//   hadits dengan beragam grade, dan grade per hadits kosong di
+//   sumber). Menulis 'sahih' untuk Sunan adalah klaim palsu.
+//   Status ini ditulis eksplisit di kolom sumber tiap baris.
 // - Penerjemah Indonesia tidak tercantum di sumber (author:
 //   "Unknown" di editions.json), jadi kolom sumber juga menulis
 //   itu, bukan mengarang nama penerjemah.
@@ -26,23 +34,29 @@
 // - Kategori = judul bab (section) dari metadata sumber, dalam
 //   bahasa Inggris apa adanya (mis. "Revelation"), bukan
 //   terjemahan buatan.
+// - Nama kitab di kolom `kitab` memakai nama Indonesia yang umum
+//   ("Sunan at-Tirmidzi", bukan nama formal sumber "Jami At
+//   Tirmidhi"), supaya rujukan "HR. Sunan at-Tirmidzi No. 1337"
+//   terbaca wajar.
 //
 // Pakai:
-//   bun run import:hadits                 # Bukhari + Muslim, lewati kitab yang sudah ada
-//   bun run import:hadits -- --kitab=bukhari
-//   bun run import:hadits -- --reset      # hapus dulu kedua kitab ini, impor ulang
+//   bun run import:hadits                 # semua kitab, lewati kitab yang sudah ada
+//   bun run import:hadits -- --kitab=abudawud
+//   bun run import:hadits -- --reset      # hapus dulu kitab yang dipilih, impor ulang
 //   SIJI_DB=/tmp/uji.db bun run import:hadits
 import { db } from "../src/db";
 
 const CDN = "https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1/editions";
 
-const KITAB: Record<string, { nama: string; tag: string }> = {
-  bukhari: { nama: "Sahih al-Bukhari", tag: "bukhari" },
-  muslim: { nama: "Sahih Muslim", tag: "muslim" },
-};
+const SUMBER_DASAR =
+  "fawazahmed0/hadith-api (data sunnah.com); grade per hadits di sumber kosong; terjemahan Indonesia penerjemah tidak tercantum";
 
-const SUMBER =
-  "fawazahmed0/hadith-api (data sunnah.com); status sahih berdasarkan kitab Sahih, grade per hadits di sumber kosong; terjemahan Indonesia penerjemah tidak tercantum";
+const KITAB: Record<string, { nama: string; tag: string; status: string; sumber: string }> = {
+  bukhari: { nama: "Sahih al-Bukhari", tag: "bukhari", status: "sahih", sumber: SUMBER_DASAR + "; status sahih berdasarkan kitab Sahih" },
+  muslim: { nama: "Sahih Muslim", tag: "muslim", status: "sahih", sumber: SUMBER_DASAR + "; status sahih berdasarkan kitab Sahih" },
+  abudawud: { nama: "Sunan Abu Dawud", tag: "abudawud", status: "belum-diverifikasi", sumber: SUMBER_DASAR + "; status sanad belum diverifikasi — kitab Sunan berisi hadits dengan beragam grade" },
+  tirmidhi: { nama: "Sunan at-Tirmidzi", tag: "tirmidhi", status: "belum-diverifikasi", sumber: SUMBER_DASAR + "; status sanad belum diverifikasi — kitab Sunan berisi hadits dengan beragam grade" },
+};
 
 async function ambilEdisi(nama: string): Promise<any> {
   const r = await fetch(`${CDN}/${nama}.json`);
@@ -51,7 +65,9 @@ async function ambilEdisi(nama: string): Promise<any> {
 }
 
 async function imporKitab(kunci: string, reset: boolean): Promise<number> {
-  const { nama, tag } = KITAB[kunci];
+  const entri = KITAB[kunci];
+  if (!entri) throw new Error(`Kitab tidak dikenal: ${kunci}`);
+  const { nama, tag, status, sumber } = entri;
   const sudah = (db.query("SELECT COUNT(*) AS n FROM hadits WHERE kitab = ?").get(nama) as { n: number }).n;
   if (reset && sudah > 0) {
     db.query("DELETE FROM hadits WHERE kitab = ?").run(nama);
@@ -89,9 +105,9 @@ async function imporKitab(kunci: string, reset: boolean): Promise<number> {
       perawi: null,
       matan_arab: teksAra || null,
       matan_id: teksInd,
-      status_sanad: "sahih",
+      status_sanad: status,
       kategori: section[String(h.reference?.book ?? "")] || null,
-      sumber: SUMBER,
+      sumber,
       tag: tag,
     });
   }
@@ -117,9 +133,9 @@ async function imporKitab(kunci: string, reset: boolean): Promise<number> {
 const args = process.argv.slice(2);
 const reset = args.includes("--reset");
 const kitabArg = args.find((a) => a.startsWith("--kitab="))?.split("=")[1];
-const daftar = kitabArg ? [kitabArg] : ["bukhari", "muslim"];
+const daftar = kitabArg ? [kitabArg] : ["bukhari", "muslim", "abudawud", "tirmidhi"];
 for (const k of daftar) {
-  if (!KITAB[k]) throw new Error(`Kitab tidak dikenal: ${k} (pilih bukhari atau muslim)`);
+  if (!KITAB[k]) throw new Error(`Kitab tidak dikenal: ${k} (pilih bukhari, muslim, abudawud, atau tirmidhi)`);
 }
 
 for (const k of daftar) await imporKitab(k, reset);
