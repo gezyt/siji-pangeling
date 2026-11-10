@@ -557,6 +557,10 @@ export function listHadits(limit = 20, offset = 0, kitab?: string, status?: stri
   return db.query("SELECT * FROM hadits ORDER BY id ASC LIMIT ? OFFSET ?").all(lim, off);
 }
 
+export function getHadits(kitab: string, no: string) {
+  return db.query("SELECT * FROM hadits WHERE kitab = ? AND no_hadits = ?").get(kitab, no) as any;
+}
+
 export function cariHadits(q: string, limit = 20, offset = 0, kitab?: string, status?: string) {
   if (kitab && status) return cariModul("hadits", "hadits_fts", ["matan_arab", "matan_id", "kitab", "perawi"], q, limit, offset, "AND m.kitab = ? AND m.status_sanad = ?", [kitab, status]);
   if (kitab) return cariModul("hadits", "hadits_fts", ["matan_arab", "matan_id", "kitab", "perawi"], q, limit, offset, "AND m.kitab = ?", [kitab]);

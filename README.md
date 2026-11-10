@@ -200,6 +200,38 @@ satu langkah mundur kejujuran label dan satu ketimpangan filter:
   semua" kini menyelaraskan juga input filter (sebelumnya
   dropdown bisa menampilkan pilihan lama sementara pencarian
   sudah mencakup semua).
+
+### Tab Hadits seperti Al-Qur'an (P7, 2026-11-10)
+
+Atas permintaan Pak Gun, tab Hadits diubah mengikuti pola tab
+Al-Qur'an (yang sejak awal tidak menampilkan daftar otomatis):
+
+- **Tidak ada daftar otomatis:** membuka tab Hadits kini hanya
+  menampilkan petunjuk — cari kata atau buka hadits tertentu.
+  Memilih kitab saja tetap menampilkan daftar kitab itu (seperti
+  memilih surah saja menampilkan daftar ayatnya).
+- **Satu kotak cari:** kotak yang sama mencari isi hadits (matan
+  Arab/Indonesia) dan nama periwayat — indeks FTS sudah mencakup
+  keempat kolom (`matan_arab`, `matan_id`, `kitab`, `perawi`),
+  jadi tidak perlu kotak terpisah. Dropdown kitab tetap menjadi
+  penyaring pencarian.
+- **Buka hadits tertentu:** dropdown kitab + kolom "No. hadits" +
+  tombol Buka, cerminan surah + "Ayat ke-" + Buka. Backend baru:
+  `getHadits(kitab, no)` + `GET /api/hadits?kitab=..&no=..`
+  (404 bila nomor itu tidak ada di kitab itu; `no_hadits`
+  bertipe TEXT di skema).
+- **Tautan dalam kini tepat:** `#hadits/Sahih%20al-Bukhari/1`
+  membuka hadits itu persis (dulu hanya mencari kata "Bukhari
+  1"). Nama pendek lama (`#hadits/Bukhari/1`) tetap dipetakan
+  (`petaKitabHash`) supaya tautan lama tidak putus. Kartu sumber
+  di Tanya Jawab juga membuka haditsnya persis bila nomornya ada.
+- **Drive-by:** teks kosong tab Hadits yang basi ("Belum ada
+  hadits… menunggu sumber terverifikasi") diganti "Tidak ada
+  hadits di kitab ini." Uji: 45/45 `bun test`; E2E ke DB salinan
+  dengan 3 hadits seed — buka tepat (Bukhari 1), 404 untuk nomor
+  tak ada, cari periwayat "Abu Hurairah" 2 hasil, cari "sabar" +
+  kitab Bukhari hanya Bukhari, daftar tanpa `?q=` tetap jalan.
+  Uji klik di browser (termasuk hash) menunggu deploy.
 - **Uji:** 38/38 `bun test` (tanpa perubahan backend); `node
   --check` kedua blok script; E2E server lokal (penanda
   kitabWrap, tombol-tombol baru, tombol "Tafsir"); filter kitab
@@ -219,8 +251,11 @@ daftar generik dari tabel `konten`:
   `bun run import:kata`) — label tombol kembali menjadi
   "Tafsir & per kata" setelah impor terverifikasi di VPS.
 - Tab **Hadits**: kartu kitab, nomor, perawi, status sanad, matan
-  Arab + terjemahan. Saat ini kosong dengan penjelasan bahwa isinya
-  menunggu sumber terverifikasi.
+  Arab + terjemahan (19.731 hadits, 4 kitab). Seperti tab
+  Al-Qur'an, tab ini tidak lagi menampilkan daftar otomatis:
+  cari lewat satu kotak (isi hadits atau nama periwayat, dengan
+  penyaring kitab), atau buka hadits tertentu dari kitab +
+  nomornya.
 - Tab **Siroh**: kartu timeline (tahun Hijriah/Masehi, tempat,
   peristiwa, hikmah). Saat ini kosong dengan penjelasan serupa.
 - Tab **Artikel**: kartu judul, isi, dalil, kategori. Saat ini

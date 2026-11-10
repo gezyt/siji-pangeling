@@ -80,7 +80,7 @@
   .lewati { position: absolute; left: -9999px; top: 0; background: var(--teal); color: #fff;
     padding: .75rem 1rem; border-radius: 0 0 12px 0; z-index: 10; }
   .lewati:focus { left: 0; }
-  #ayatNo { flex: 0 1 6.5rem; }
+  #ayatNo, #noHadits { flex: 0 1 6.5rem; }
   .search button, .btn { padding: .85rem 1.4rem; background: var(--teal); color: #fff;
     border: none; border-radius: 12px; font-size: 1rem; cursor: pointer; }
   .search button:hover, .btn:hover { background: var(--teal-dark); }
@@ -154,7 +154,7 @@
     .arab { font-size: 1.35rem; }
     .card { padding: 1.1rem; }
     .surah { flex-direction: column; align-items: stretch; }
-    #ayatNo { flex: 1 1 auto; }
+    #ayatNo, #noHadits { flex: 1 1 auto; }
   }
 </style>
 </head>
@@ -192,6 +192,9 @@
       <option>Sunan Abu Dawud</option>
       <option>Sunan at-Tirmidzi</option>
     </select>
+    <label for="noHadits">No. hadits:</label>
+    <input id="noHadits" type="number" min="1" inputmode="numeric" placeholder="No." aria-label="Nomor hadits">
+    <button id="bukaHadits" class="btn" type="button">Buka</button>
   </div>
   <section id="tanyaWrap" hidden aria-label="Tanya jawab">
     <form class="search" id="formTanya">
@@ -239,14 +242,14 @@ const LIMIT = 20;
 // status sanad, siroh punya timeline, artikel punya dalil.
 const MODUL = {
   ayat:    { label: "Al-Qur'an", endpoint: "/api/ayat",    kosong: "Belum ada ayat di modul ini. Jalankan impor Al-Qur'an dulu, lalu halaman ini terisi otomatis." },
-  hadits:  { label: "Hadits",    endpoint: "/api/hadits",  kosong: "Belum ada hadits. Modul ini sudah siap, isinya menunggu sumber hadits terverifikasi pada fase berikutnya." },
+  hadits:  { label: "Hadits",    endpoint: "/api/hadits",  kosong: "Tidak ada hadits di kitab ini." },
   siroh:   { label: "Siroh",     endpoint: "/api/siroh",   kosong: "Belum ada kisah siroh. Modul timeline ini sudah siap, isinya menyusul pada fase berikutnya." },
   artikel: { label: "Artikel",   endpoint: "/api/artikel", kosong: "Belum ada artikel. Modul Islam kontemporer ini sudah siap, isinya menyusul pada fase berikutnya." },
   // Tanya Jawab bukan modul daftar: tab ini menampilkan panel tanya
   // sendiri (form + jawaban + kartu sumber), bukan muat() daftar.
   tanya:   { label: "Tanya Jawab", endpoint: "/api/tanya", kosong: "", tanya: true },
 };
-let state = { modul: "ayat", q: "", surah: "", ayat: "", kitab: "", offset: 0, total: null, memuat: false, adaLagi: false };
+let state = { modul: "ayat", q: "", surah: "", ayat: "", kitab: "", noHadits: "", offset: 0, total: null, memuat: false, adaLagi: false };
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -385,6 +388,21 @@ async function muat(ulang) {
     $("lebih").disabled = false;
     return;
   }
+  // Modul Hadits tidak menampilkan apa pun sebelum pengguna mencari
+  // atau membuka kitab/nomor tertentu — cerminan tab Al-Qur'an:
+  // daftar 19.731 hadits tidak lagi dimuat otomatis saat tab dibuka.
+  // Memilih kitab saja tetap menampilkan daftar kitab itu (seperti
+  // memilih surah saja menampilkan daftar ayatnya).
+  if (state.modul === "hadits" && !state.q && !state.kitab && !state.noHadits) {
+    if (ulang) {
+      $("hasil").innerHTML = `<div class="kosong">Cari hadits berdasarkan kata — ketik kata dari isi hadits atau nama periwayat di kolom pencarian modul di atas, atau pakai kotak “Cari di semua modul” di paling atas.<br>Atau buka hadits tertentu: pilih kitab, isi nomor hadits, lalu tekan Buka.</div>`;
+    }
+    $("hitung").textContent = "";
+    $("lebih").hidden = true;
+    state.memuat = false;
+    $("lebih").disabled = false;
+    return;
+  }
   try {
     const m = MODUL[state.modul];
     // Buka satu ayat tertentu: /api/ayat?surah=..&ayat=.. mengembalikan
@@ -399,6 +417,23 @@ async function muat(ulang) {
         $("lebih").hidden = true;
       } catch {
         if (ulang) $("hasil").innerHTML = `<div class="kosong">Ayat ${esc(state.ayat)} tidak ditemukan di surah ini. Periksa nomor ayatnya, lalu coba lagi.</div>`;
+        $("hitung").textContent = "";
+        $("lebih").hidden = true;
+      }
+      return;
+    }
+    // Buka satu hadits tertentu: /api/hadits?kitab=..&no=.. mengembalikan
+    // satu objek hadits (atau 404 bila nomor itu tidak ada di kitab itu).
+    if (state.modul === "hadits" && state.kitab && state.noHadits) {
+      try {
+        const satu = await ambil(`/api/hadits?kitab=${encodeURIComponent(state.kitab)}&no=${state.noHadits}`);
+        if (ulang) $("hasil").innerHTML = "";
+        $("hasil").insertAdjacentHTML("beforeend", kartuHadits(satu));
+        state.offset = 1;
+        $("hitung").textContent = `Menampilkan ${satu.kitab} No. ${satu.no_hadits}.`;
+        $("lebih").hidden = true;
+      } catch {
+        if (ulang) $("hasil").innerHTML = `<div class="kosong">Hadits No. ${esc(state.noHadits)} tidak ditemukan di ${esc(state.kitab)}. Periksa nomor haditsnya, lalu coba lagi.</div>`;
         $("hitung").textContent = "";
         $("lebih").hidden = true;
       }
@@ -495,10 +530,12 @@ function pilihModul(kunci, jagaState) {
   if (!jagaState) {
     // P5-B: kata kunci dipertahankan saat pindah tab — pindah tab
     // langsung mencari kata yang sama di modul baru. Surah/ayat/
-    // kitab (spesifik tabnya masing-masing) tetap diosongkan.
+    // kitab/no. hadits (spesifik tabnya masing-masing) tetap
+    // diosongkan.
     state.surah = ""; $("surah").value = "";
     state.ayat = ""; $("ayatNo").value = "";
     state.kitab = ""; $("kitab").value = "";
+    state.noHadits = ""; $("noHadits").value = "";
   }
   $("q").value = state.q;
   $("tabs").querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x.dataset.modul === kunci)));
@@ -611,11 +648,25 @@ async function jalankanCariSemua(q) {
 
 // Routing hash: tiap tab punya alamat sendiri sehingga bisa dibagikan
 // dan di-bookmark (#ayat, #hadits, #siroh, #artikel, #tanya), plus
-// tautan dalam ke ayat (#ayat/2/255), hadits (#hadits/Bukhari/1), dan
+// tautan dalam ke ayat (#ayat/2/255), hadits (#hadits/Sahih%20al-Bukhari/1), dan
 // pertanyaan Tanya (#tanya?q=... — hanya mengisi kolom, tidak
 // mengirim otomatis, supaya tautan yang dibagikan tidak memicu
 // panggilan AI begitu dibuka).
 let menerapkanHash = false;
+
+// Nama kitab pendek di tautan lama -> nama lengkap di kolom DB.
+// Tautan lama (#hadits/Bukhari/1) tetap dibuka dengan benar.
+const PETA_KITAB_HASH = {
+  "Bukhari": "Sahih al-Bukhari",
+  "Muslim": "Sahih Muslim",
+  "Abu Dawud": "Sunan Abu Dawud",
+  "Tirmidzi": "Sunan at-Tirmidzi",
+};
+function petaKitabHash(nama) {
+  if (PETA_KITAB_HASH[nama]) return PETA_KITAB_HASH[nama];
+  const penuh = ["Sahih al-Bukhari", "Sahih Muslim", "Sunan Abu Dawud", "Sunan at-Tirmidzi"];
+  return penuh.includes(nama) ? nama : null;
+}
 
 function bacaHash() {
   const mentah = location.hash.slice(1);
@@ -628,6 +679,7 @@ function bacaHash() {
 function tulisHash() {
   let h = "#" + state.modul;
   if (state.modul === "ayat" && state.surah && state.ayat) h += "/" + state.surah + "/" + state.ayat;
+  else if (state.modul === "hadits" && state.kitab && state.noHadits) h += "/" + encodeURIComponent(state.kitab) + "/" + state.noHadits;
   else if (state.modul === "tanya") {
     const q = $("tanyaQ").value.trim();
     if (q) h += "?q=" + encodeURIComponent(q);
@@ -651,7 +703,15 @@ function terapkanHash() {
     if (modul === "ayat" && seg[1] && seg[2]) {
       state.surah = seg[1]; state.ayat = seg[2]; state.q = "";
     } else if (modul === "hadits" && seg[1]) {
-      state.q = seg[1] + (seg[2] ? " " + seg[2] : ""); state.surah = ""; state.ayat = "";
+      // Tautan dalam ke hadits tertentu: buka kitab + nomor itu
+      // persis (bukan sekadar mencari kata-katanya seperti dulu).
+      const kitab = petaKitabHash(seg[1]);
+      if (kitab) {
+        state.kitab = kitab; state.noHadits = seg[2] || ""; state.q = "";
+      } else {
+        state.q = seg[1] + (seg[2] ? " " + seg[2] : "");
+      }
+      state.surah = ""; state.ayat = "";
     } else if (q) {
       state.q = q; state.surah = ""; state.ayat = "";
     } else {
@@ -664,6 +724,7 @@ function terapkanHash() {
     $("surah").value = state.surah;
     $("ayatNo").value = state.ayat;
     $("kitab").value = state.kitab;
+    $("noHadits").value = state.noHadits;
   } finally {
     menerapkanHash = false;
   }
@@ -691,14 +752,16 @@ async function muatAwal() {
 let timer = null;
 $("q").addEventListener("input", (e) => {
   clearTimeout(timer);
-  // Mode cari frase menggantikan mode buka ayat tertentu.
+  // Mode cari frase menggantikan mode buka ayat/hadits tertentu.
   state.ayat = ""; $("ayatNo").value = "";
+  state.noHadits = ""; $("noHadits").value = "";
   timer = setTimeout(() => { state.q = e.target.value.trim(); muat(true); }, 350);
 });
 $("formCari").addEventListener("submit", (e) => {
   e.preventDefault();
   clearTimeout(timer);
   state.ayat = ""; $("ayatNo").value = "";
+  state.noHadits = ""; $("noHadits").value = "";
   state.q = $("q").value.trim();
   muat(true);
   tulisHash();
@@ -713,6 +776,7 @@ $("surah").addEventListener("change", (e) => {
 // P6-B: pemilih kitab — cerminan pemilih surah di tab Hadits.
 $("kitab").addEventListener("change", (e) => {
   state.kitab = e.target.value;
+  state.noHadits = $("noHadits").value.trim();
   perbaruiPlaceholder();
   muat(true);
   tulisHash();
@@ -743,6 +807,33 @@ function bukaAyatTertentu() {
 $("bukaAyat").addEventListener("click", bukaAyatTertentu);
 $("ayatNo").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); bukaAyatTertentu(); }
+});
+function bukaHaditsTertentu() {
+  const kitab = $("kitab").value;
+  const no = $("noHadits").value.trim();
+  if (!kitab) {
+    $("hasil").innerHTML = '<div class="kosong">Pilih kitab dulu, lalu isi nomor hadits dan tekan Buka.</div>';
+    $("hitung").textContent = "";
+    $("lebih").hidden = true;
+    return;
+  }
+  const n = Number(no);
+  if (!no || !Number.isFinite(n) || !Number.isInteger(n) || n < 1) {
+    $("hasil").innerHTML = '<div class="kosong">Isi nomor hadits dengan angka (mis. 1), lalu tekan Buka.</div>';
+    $("hitung").textContent = "";
+    $("lebih").hidden = true;
+    return;
+  }
+  state.kitab = kitab;
+  state.noHadits = String(Math.floor(n));
+  // Mode buka hadits tertentu menggantikan mode cari.
+  state.q = ""; $("q").value = "";
+  muat(true);
+  tulisHash();
+}
+$("bukaHadits").addEventListener("click", bukaHaditsTertentu);
+$("noHadits").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); bukaHaditsTertentu(); }
 });
 $("lebih").addEventListener("click", () => muat(false));
 // P5-A/P6-B: tombol "Cari di semua surah/kitab" di baris hitungan.
@@ -798,10 +889,10 @@ $("hasil").addEventListener("click", async (e) => {
     // juga — tanpa ini dropdown bisa menampilkan pilihan lama
     // sementara pencariannya sudah mencakup semua.
     state.q = cariSemuaQ;
-    state.surah = ""; state.ayat = ""; state.kitab = "";
+    state.surah = ""; state.ayat = ""; state.kitab = ""; state.noHadits = "";
     pilihModul(lihat.dataset.modul, true);
     $("q").value = state.q;
-    $("surah").value = ""; $("ayatNo").value = ""; $("kitab").value = "";
+    $("surah").value = ""; $("ayatNo").value = ""; $("kitab").value = ""; $("noHadits").value = "";
     tulisHash();
     return;
   }
@@ -948,8 +1039,15 @@ $("tanyaSumber").addEventListener("click", (e) => {
     tulisHash();
   } else if (s.modul === "hadits" && s.kitab) {
     pilihModul("hadits");
-    state.q = s.kitab + (s.no ? " " + s.no : "");
-    $("q").value = state.q;
+    if (s.no) {
+      // Buka hadits itu persis (kitab + nomor), bukan sekadar cari.
+      state.kitab = s.kitab; $("kitab").value = s.kitab;
+      state.noHadits = String(s.no); $("noHadits").value = String(s.no);
+      state.q = ""; $("q").value = "";
+    } else {
+      state.q = s.kitab;
+      $("q").value = state.q;
+    }
     muat(true);
     tulisHash();
   } else {

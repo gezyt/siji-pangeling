@@ -707,6 +707,48 @@ Interaksi 7,4; Aksesibilitas 7,0; Visual 7,7). Dua catatan:
   diubah di commit ini, supaya tidak ada jendela di mana label
   berjanji sementara data belum ada).
 
+## 6m. Lanjutan 2026-11-10 sore — tab Hadits seperti Al-Qur'an (P7)
+
+- **Permintaan Pak Gun (15:53):** "kalau halaman hadits diubah
+  seperti halaman Al-Qur'an, yaitu tidak langsung menampilkan
+  hadits, tetapi ada fitur pencarian yg disesuaikan konten /
+  periwayat / kitab hadits, bisa ya?" — dijawab bisa, dengan
+  rancangan + dua varian periwayat (satu kotak vs dua kotak).
+  Dipilih: **satu kotak cari + buka nomor** (15:57).
+- **Pola yang dicerminkan:** tab Al-Qur'an sejak rework awal
+  tidak menampilkan apa pun sebelum pengguna mencari atau
+  membuka surah/ayat tertentu. Tab Hadits kini sama: guard di
+  `muat()` (`!q && !kitab && !noHadits`) menampilkan petunjuk,
+  bukan daftar. Memilih kitab saja tetap menampilkan daftar
+  kitab itu (seperti memilih surah saja).
+- **Satu kotak cari:** FTS hadits sudah mencakup `matan_arab`,
+  `matan_id`, `kitab`, `perawi` — mengetik nama periwayat
+  ("Abu Hurairah") sudah menemukan haditsnya, jadi tidak perlu
+  kotak periwayat terpisah (varian dua kotak ditolak Pak Gun).
+- **Buka hadits tertentu (baru):** `#kitabWrap` ditambah kolom
+  "No. hadits" + tombol Buka; `state.noHadits` baru (dibersihkan
+  saat pindah tab, saat mulai mencari, dan oleh handler "Lihat
+  semua"; diselaraskan oleh pemilih kitab seperti surah).
+  Backend baru: `getHadits(kitab, no)` (kolom `no_hadits`
+  bertipe TEXT) + cabang `?kitab=&no=` di `/api/hadits`
+  (404 bila tidak ada).
+- **Hash kini tepat:** `tulisHash` menulis
+  `#hadits/{kitab}/{no}` untuk buka-tertentu;
+  `terapkanHash` membuka kitab + nomor itu persis;
+  `petaKitabHash` memetakan nama pendek lama ("Bukhari",
+  "Muslim", "Abu Dawud", "Tirmidzi") ke nama lengkap DB, dan
+  nama tak dikenal jatuh kembali ke pencarian seperti dulu.
+  Kartu sumber Tanya Jawab (hadits) juga membuka persis bila
+  nomornya ada.
+- **Uji:** 45/45 `bun test`; `node --check` kedua blok script;
+  E2E ke salinan DB + 3 hadits seed: buka Bukhari 1 tepat,
+  nomor tak ada 404, cari periwayat 2 hasil, cari "sabar" +
+  kitab Bukhari hanya Bukhari, daftar tanpa `?q=` tetap jalan.
+  Logika hash dicerminkan dari jalur ayat yang sudah teruji;
+  uji klik di browser menunggu deploy.
+- **Deploy di VPS:** `./scripts/deploy.sh` saja (tanpa impor/
+  seed — P7 murni kode, data hadits sudah live sejak P2).
+
 ## 7. Perintah deploy (setelah build — jalankan di VPS)
 
 ```bash

@@ -1,7 +1,7 @@
 import {
   db, cari, listKonten, hitungKonten, daftarJenis,
   listAyat, hitungAyat, getAyat, cariAyat, daftarSurah,
-  listHadits, hitungHadits, cariHadits,
+  listHadits, hitungHadits, getHadits, cariHadits,
   listSiroh, hitungSiroh, cariSiroh,
   listArtikel, hitungArtikel, cariArtikel, cariSemua,
 } from "./db";
@@ -189,6 +189,11 @@ Bun.serve({
       const { limit, offset } = ambilLimitOffset(url);
       const kitab = url.searchParams.get("kitab") || undefined;
       const status = url.searchParams.get("status_sanad") || undefined;
+      const no = url.searchParams.get("no");
+      if (kitab && no) {
+        const satu = getHadits(kitab, no);
+        return satu ? json(satu) : json({ error: "hadits tidak ditemukan" }, 404);
+      }
       const q = url.searchParams.get("q");
       if (q) return json(cariHadits(q, limit, offset, kitab, status));
       return halaman(url, listHadits(limit, offset, kitab, status), hitungHadits(kitab, status));
