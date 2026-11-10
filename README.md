@@ -124,6 +124,27 @@ daftar generik dari tabel `konten`:
   `/api/cari` tetap jalan di backend, hanya tidak lagi dipakai
   frontend.
 
+## Kredibilitas & berbagi (P1, 2026-11-10)
+
+- **Meta berbagi** di `public/index.html` dan `public/tentang.html`:
+  Open Graph + Twitter Card (judul, deskripsi, URL kanonis,
+  `og:locale id_ID`); belum ada `og:image` (logo masih P4).
+- **Routing hash:** tiap tab punya alamat (`#ayat`, `#hadits`,
+  `#siroh`, `#artikel`, `#tanya`), plus tautan dalam ke ayat
+  (`#ayat/2/255`), hadits (`#hadits/Bukhari/1`), dan pertanyaan
+  Tanya (`#tanya?q=...` — hanya mengisi kolom, tidak mengirim
+  otomatis). Ditulis dengan `history.replaceState` (tidak menambah
+  entri riwayat, tidak memicu `hashchange`); `terapkanHash()` di
+  `muatAwal()` dan listener `hashchange` untuk tombol kembali.
+- **Halaman Tentang** (`public/tentang.html`, disajikan otomatis
+  dari folder statis): pengelola, sumber tiap modul beserta
+  keterbatasannya, metodologi Tanya Jawab, dan kontak lewat blog.
+  Tautan dari footer halaman utama.
+- **Tanya Jawab:** tombol **Salin jawaban** dan **Bagikan
+  (WhatsApp)** di bawah jawaban sungguhan (tidak tampil untuk
+  penolakan); tautan bagikan berisi pertanyaan + jawaban (dipotong
+  400 karakter) + tautan balik `#tanya?q=...`.
+
 ## Backup otomatis + deploy dari GitHub (fase 4)
 
 Sengaja BUKAN auto-deploy webhook: gerbang deploy tetap di tangan

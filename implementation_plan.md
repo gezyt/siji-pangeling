@@ -345,6 +345,38 @@ sumber tak relevan ikut tampil + tersimpan di cache 7 hari.
   dasar berawalan "ter"/"pen") bila pertanyaan semacam ini nyata
   masuk; untuk sekarang tidak dikerjakan.
 
+## 6d. Lanjutan 2026-11-10 siang — kredibilitas & berbagi (P1)
+
+Atas audit 6,4/10 dan lampu hijau Pak Gun ("lanjut aja codingnya"):
+
+- **Meta berbagi:** Open Graph + Twitter Card di `index.html` dan
+  `tentang.html` (judul, deskripsi, URL kanonis, `og:locale id_ID`).
+  Tanpa `og:image` — logo masih P4.
+- **Routing hash** (`bacaHash`/`tulisHash`/`terapkanHash` di
+  `public/index.html`): `#ayat`, `#hadits`, `#siroh`, `#artikel`,
+  `#tanya`; tautan dalam `#ayat/2/255`, `#hadits/Bukhari/1`,
+  `#tanya?q=...` (hanya pra-isi, tidak auto-kirim — tautan yang
+  dibagikan tidak boleh memicu panggilan AI). Ditulis via
+  `history.replaceState` (tanpa entri riwayat, tanpa `hashchange`);
+  `terapkanHash()` dipanggil di `muatAwal()` dan saat `hashchange`.
+  `pilihModul(kunci, jagaState)` — saat diterapkan dari hash, state
+  diisi dulu baru `pilihModul` dipanggil, supaya hanya satu `muat()`
+  (dua muat berurutan bisa balapan dan menimpa hasil). Diuji:
+  sintaks JS (`node --check`), 9/9 uji logika hash (parse + tulis,
+  termasuk kitab ber-spasi dan hash tak dikenal -> tab ayat),
+  halaman utama + `/tentang.html` 200 saat disajikan lokal.
+- **Halaman Tentang** (`public/tentang.html`): pengelola (Gunanto,
+  S.Pd., guru Matematika SMPN 1 Punggur), sumber tiap modul
+  (ayat: Quran.com + Kemenag; hadits: Bukhari + Muslim edisi
+  Indonesia dari hadith-api fawazahmed0; siroh: 8 peristiwa Hijrah;
+  artikel: 5 tulisan pengelola; tafsir: fitur ada, isi kosong),
+  metodologi Tanya Jawab + "bukan fatwa" + jawaban kurasi,
+  keterbatasan, kontak lewat blog. Tautan dari footer.
+- **Tanya Jawab:** tombol Salin jawaban + Bagikan (WhatsApp) di
+  bawah jawaban sungguhan (tidak tampil untuk penolakan); tautan
+  bagikan = pertanyaan + jawaban (dipotong 400 karakter) + tautan
+  balik `#tanya?q=...`.
+
 ## 7. Perintah deploy (setelah build — jalankan di VPS)
 
 ```bash

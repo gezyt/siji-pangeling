@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="Siji Pangeling: Al-Qur'an, hadits, siroh, dan artikel Islam dalam satu tempat.">
+<meta property="og:title" content="Siji Pangeling — Tafsir · Hadits · Siroh">
+<meta property="og:description" content="Al-Qur'an, hadits, siroh, dan artikel Islam dalam satu tempat — pengingat untuk dibaca dan direnungkan.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://siji.pangeling.web.id/">
+<meta property="og:site_name" content="Siji Pangeling">
+<meta property="og:locale" content="id_ID">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Siji Pangeling — Tafsir · Hadits · Siroh">
+<meta name="twitter:description" content="Al-Qur'an, hadits, siroh, dan artikel Islam dalam satu tempat — pengingat untuk dibaca dan direnungkan.">
 <title>Siji Pangeling — Tafsir · Hadits · Siroh</title>
 <style>
   :root {
@@ -75,9 +84,17 @@
   .contoh { display: flex; flex-wrap: wrap; gap: .4rem; margin: .75rem 0; }
   .contoh button { background: #fff; border: 1px solid var(--line); border-radius: 99px;
     padding: .35rem .8rem; font-size: .85rem; cursor: pointer; color: var(--teal-dark); }
+  /* Tombol di bawah jawaban Tanya Jawab: salin jawaban dan bagikan
+     ke WhatsApp (tautan berisi pertanyaan + jawaban + tautan balik
+     ke tab Tanya dengan pertanyaan yang sama). */
+  .aksi-tanya { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+  .aksi-tanya button, .aksi-tanya a { background: #fff; border: 1px solid var(--line); border-radius: 99px;
+    padding: .4rem .9rem; font-size: .85rem; cursor: pointer; color: var(--teal-dark); text-decoration: none; }
+  .aksi-tanya button:hover, .aksi-tanya a:hover { border-color: var(--teal); }
   .catatan { font-size: .85rem; color: var(--muted); margin: .75rem 0 0; }
   .lebih { text-align: center; margin-top: 1.5rem; }
   footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 0 1rem 2rem; }
+  footer a { color: var(--teal-dark); }
   @media (max-width: 480px) {
     header h1 { font-size: 1.45rem; }
     .search { flex-direction: column; }
@@ -143,7 +160,7 @@
   <div id="hasil" aria-live="polite"><div class="kosong">Memuat konten…</div></div>
   <div class="lebih"><button class="btn" id="lebih" hidden>Muat lagi</button></div>
 </main>
-<footer>Sumber ayat: Quran.com · Terjemahan Kemenag RI. Konten ditampilkan apa adanya untuk dibaca dan direnungkan.</footer>
+<footer>Sumber ayat: Quran.com · Terjemahan Kemenag RI. Konten ditampilkan apa adanya untuk dibaca dan direnungkan.<br><a href="/tentang.html">Tentang Siji Pangeling</a> · <a href="https://site.pakgun.web.id/" target="_blank" rel="noopener">Blog Pak Gun</a></footer>
 <script>
 const LIMIT = 20;
 // Satu halaman, empat modul. Tiap modul memakai endpoint bacanya sendiri
@@ -315,11 +332,15 @@ function renderTabs(hitungan) {
 
 // Pindah tab. Dipakai tombol tab dan kartu sumber di Tanya Jawab
 // (kartu sumber membuka sumbernya di tab modul asalnya).
-function pilihModul(kunci) {
+// jagaState: dipakai terapkanHash() — state sudah diisi dari hash
+// sebelum pilihModul dipanggil, jadi jangan dihapus.
+function pilihModul(kunci, jagaState) {
   state.modul = kunci;
-  state.q = ""; $("q").value = "";
-  state.surah = ""; $("surah").value = "";
-  state.ayat = ""; $("ayatNo").value = "";
+  if (!jagaState) {
+    state.q = ""; $("q").value = "";
+    state.surah = ""; $("surah").value = "";
+    state.ayat = ""; $("ayatNo").value = "";
+  }
   $("tabs").querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x.dataset.modul === kunci)));
   const tanya = MODUL[kunci].tanya === true;
   $("formCari").style.display = tanya ? "none" : "";
@@ -331,7 +352,68 @@ function pilihModul(kunci) {
   $("petaSiroh").style.display = state.modul === "siroh" ? "block" : "none";
   $("q").placeholder = `Cari di ${MODUL[state.modul].label}… (mis. sabar)`;
   if (!tanya) muat(true);
+  if (!menerapkanHash) tulisHash();
 }
+
+// Routing hash: tiap tab punya alamat sendiri sehingga bisa dibagikan
+// dan di-bookmark (#ayat, #hadits, #siroh, #artikel, #tanya), plus
+// tautan dalam ke ayat (#ayat/2/255), hadits (#hadits/Bukhari/1), dan
+// pertanyaan Tanya (#tanya?q=... — hanya mengisi kolom, tidak
+// mengirim otomatis, supaya tautan yang dibagikan tidak memicu
+// panggilan AI begitu dibuka).
+let menerapkanHash = false;
+
+function bacaHash() {
+  const mentah = location.hash.slice(1);
+  const [jalur, query] = mentah.split("?");
+  const seg = jalur.split("/").map((s) => { try { return decodeURIComponent(s); } catch { return s; } }).filter(Boolean);
+  const params = new URLSearchParams(query || "");
+  return { modul: MODUL[seg[0]] ? seg[0] : "ayat", seg, q: params.get("q") || "" };
+}
+
+function tulisHash() {
+  let h = "#" + state.modul;
+  if (state.modul === "ayat" && state.surah && state.ayat) h += "/" + state.surah + "/" + state.ayat;
+  else if (state.modul === "tanya") {
+    const q = $("tanyaQ").value.trim();
+    if (q) h += "?q=" + encodeURIComponent(q);
+  } else if (state.q) h += "?q=" + encodeURIComponent(state.q);
+  // replaceState: alamat berubah tanpa menambah entri riwayat, dan
+  // tidak memicu hashchange (jadi tidak ada putaran).
+  if (location.hash !== h) history.replaceState(null, "", h);
+}
+
+function terapkanHash() {
+  const { modul, seg, q } = bacaHash();
+  menerapkanHash = true;
+  try {
+    if (modul === "tanya") {
+      pilihModul("tanya", true);
+      if (q) $("tanyaQ").value = q;
+      return;
+    }
+    // Isi state dari hash dulu, lalu pilihModul (yang memuat dengan
+    // state ini) — satu kali muat, tanpa balapan dua muat().
+    if (modul === "ayat" && seg[1] && seg[2]) {
+      state.surah = seg[1]; state.ayat = seg[2]; state.q = "";
+    } else if (modul === "hadits" && seg[1]) {
+      state.q = seg[1] + (seg[2] ? " " + seg[2] : ""); state.surah = ""; state.ayat = "";
+    } else if (q) {
+      state.q = q; state.surah = ""; state.ayat = "";
+    } else {
+      state.q = ""; state.surah = ""; state.ayat = "";
+    }
+    pilihModul(modul, true);
+    // Sinkronkan kolom input dengan state (pilihModul tidak
+    // menyentuhnya bila jagaState).
+    $("q").value = state.q;
+    $("surah").value = state.surah;
+    $("ayatNo").value = state.ayat;
+  } finally {
+    menerapkanHash = false;
+  }
+}
+window.addEventListener("hashchange", terapkanHash);
 
 async function muatAwal() {
   try { renderTabs(await ambil("/api/modul")); }
@@ -342,7 +424,9 @@ async function muatAwal() {
       `<option value="${s.surah_no}">${s.surah_no}. ${esc(s.surah_nama)} (${s.jumlah})</option>`).join("");
   } catch { $("surah").innerHTML = `<option value="">Semua surah</option>`; }
   $("surahWrap").hidden = state.modul !== "ayat";
-  muat(true);
+  // Buka sesuai alamat (#ayat/2/255, #tanya?q=..., atau tanpa hash
+  // berarti tab Al-Qur'an seperti biasa).
+  terapkanHash();
 }
 
 let timer = null;
@@ -358,11 +442,13 @@ $("formCari").addEventListener("submit", (e) => {
   state.ayat = ""; $("ayatNo").value = "";
   state.q = $("q").value.trim();
   muat(true);
+  tulisHash();
 });
 $("surah").addEventListener("change", (e) => {
   state.surah = e.target.value;
   state.ayat = $("ayatNo").value.trim();
   muat(true);
+  tulisHash();
 });
 function bukaAyatTertentu() {
   const surah = $("surah").value;
@@ -385,6 +471,7 @@ function bukaAyatTertentu() {
   // Mode buka ayat tertentu menggantikan mode cari frase.
   state.q = ""; $("q").value = "";
   muat(true);
+  tulisHash();
 }
 $("bukaAyat").addEventListener("click", bukaAyatTertentu);
 $("ayatNo").addEventListener("keydown", (e) => {
@@ -424,10 +511,24 @@ $("hasil").addEventListener("click", async (e) => {
 // Kartu sumber bisa diklik: ayat dibuka di tab Al-Qur'an (surah+ayat),
 // sisanya dibuka di tab modulnya lewat pencarian judul/kitab.
 let tanyaSumber = [];
+// Jawaban terakhir (untuk tombol Salin di bawah jawaban).
+let tanyaTerakhir = { q: "", jawaban: "" };
+
+// Tautan bagikan WhatsApp: pertanyaan + jawaban (dipotong bila
+// panjang, supaya tautannya tidak melewati batas praktis URL) +
+// tautan balik ke tab Tanya dengan pertanyaan yang sama.
+function tautanBagikan(q, jawaban) {
+  const ringkas = jawaban.length > 400 ? jawaban.slice(0, 400) + "…" : jawaban;
+  const situs = location.origin + "/#tanya?q=" + encodeURIComponent(q);
+  const teks = `Tanya Jawab Siji Pangeling\n\nTanya: ${q}\n\n${ringkas}\n\n${situs}`;
+  return "https://wa.me/?text=" + encodeURIComponent(teks);
+}
 $("formTanya").addEventListener("submit", async (e) => {
   e.preventDefault();
   const q = $("tanyaQ").value.trim();
   if (!q) return;
+  // Pertanyaan masuk ke alamat supaya bisa dibagikan/di-bookmark.
+  tulisHash();
   const tombol = $("tanyaTombol");
   // Semua di dalam try: bila ada galat (termasuk galat tombol/fetch),
   // pesan galat tampil di halaman, bukan mati diam-diam.
@@ -443,8 +544,6 @@ $("formTanya").addEventListener("submit", async (e) => {
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
-    const labelBaku = j.dariBaku ? '<p class="catatan">✦ Jawaban kurasi Pak Gun.</p>' : "";
-    $("tanyaJawaban").innerHTML = `<article class="card">${labelBaku}<div class="isi">${br(j.jawaban)}</div></article>`;
     // Bila jawabannya "tidak ditemukan", kartu sumber tidak ditampilkan
     // — menampilkannya membuat ayat yang lemah kecocokannya tampak
     // seperti jawaban. (Server juga sudah mengosongkan sumber untuk
@@ -453,6 +552,19 @@ $("formTanya").addEventListener("submit", async (e) => {
     // DIAWALI "tidak ditemukan" — AI boleh memparafrasa penolakannya,
     // dan cocok kalimat baku persis sudah terbukti lolos 2026-11-10.
     const tidakDitemukan = /^\s*["'«“”]?\s*tidak ditemukan/i.test(String(j.jawaban || ""));
+    const labelBaku = j.dariBaku ? '<p class="catatan">✦ Jawaban kurasi Pak Gun.</p>' : "";
+    // Tombol Salin + Bagikan hanya untuk jawaban sungguhan; penolakan
+    // tidak perlu dibagikan.
+    const aksi = tidakDitemukan ? "" :
+      `<div class="aksi-tanya"><button type="button" id="tanyaSalin">Salin jawaban</button><a id="tanyaBagikan" href="${esc(tautanBagikan(q, j.jawaban || ""))}" target="_blank" rel="noopener">Bagikan (WhatsApp)</a></div>`;
+    tanyaTerakhir = { q, jawaban: j.jawaban || "" };
+    $("tanyaJawaban").innerHTML = `<article class="card">${labelBaku}<div class="isi">${br(j.jawaban)}</div>${aksi}</article>`;
+    const tombolSalin = $("tanyaSalin");
+    if (tombolSalin) tombolSalin.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(tanyaTerakhir.jawaban); tombolSalin.textContent = "Tersalin ✓"; }
+      catch { tombolSalin.textContent = "Gagal menyalin"; }
+      setTimeout(() => { tombolSalin.textContent = "Salin jawaban"; }, 1500);
+    });
     tanyaSumber = tidakDitemukan ? [] : (j.sumber || []);
     $("tanyaSumber").innerHTML = tanyaSumber.map((s, i) =>
       `<button class="card sumber" type="button" data-i="${i}"><strong>${esc(s.rujukan)}</strong><span>${esc((s.teks || "").slice(0, 160))}…</span></button>`
@@ -481,16 +593,19 @@ $("tanyaSumber").addEventListener("click", (e) => {
     $("ayatNo").value = String(s.ayat);
     state.ayat = String(s.ayat);
     muat(true);
+    tulisHash();
   } else if (s.modul === "hadits" && s.kitab) {
     pilihModul("hadits");
     state.q = s.kitab + (s.no ? " " + s.no : "");
     $("q").value = state.q;
     muat(true);
+    tulisHash();
   } else {
     pilihModul(s.modul);
     state.q = s.judul || s.rujukan;
     $("q").value = state.q;
     muat(true);
+    tulisHash();
   }
 });
 
