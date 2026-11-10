@@ -120,6 +120,19 @@ const DAFTAR: { pertanyaan: string; pemicu: string; jawaban: string; sumber: (Su
       "Al-Qur'an menyatakan penciptaan langit dan bumi lebih besar daripada penciptaan manusia (QS. Ghafir 40:57). Adapun Arsy disebut dalam doa Nabi sebagai \"Arsy yang Agung\", dan Allah sebagai Tuhan Pemelihara Arsy (HR. Sahih al-Bukhari No. 7431). Koleksi Siji tidak memuat hadits yang secara eksplisit menyebut makhluk yang paling besar.",
     sumber: [ayatSumber("40:57"), haditsSumber("Sahih al-Bukhari", "7431")],
   },
+  {
+    pertanyaan: "Carikan hadits tentang korupsi",
+    pemicu: "korupsi",
+    jawaban:
+      "Korupsi tidak sama dengan mencuri, meski berkaitan. Mencuri adalah mengambil harta orang lain secara sembunyi-sembunyi (QS. Al-Ma'idah 5:38). Korupsi adalah penyalahgunaan amanah — misalnya memakan harta dengan jalan yang batil dan menyuap hakim (QS. Al-Baqarah 2:188), serta berkhianat atas harta yang dipercayakan (QS. Ali 'Imran 3:161). Allah menyuruh menyampaikan amanat kepada yang berhak menerimanya (QS. An-Nisa 4:58), dan Nabi ﷺ menyebut salah satu tanda munafik: apabila dipercaya, ia berkhianat (HR. Sahih Muslim No. 213).",
+    sumber: [
+      ayatSumber("2:188"),
+      ayatSumber("5:38"),
+      ayatSumber("3:161"),
+      ayatSumber("4:58"),
+      haditsSumber("Sahih Muslim", "213"),
+    ],
+  },
 ];
 
 let n = 0;

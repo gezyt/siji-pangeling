@@ -449,7 +449,10 @@ $("formTanya").addEventListener("submit", async (e) => {
     // — menampilkannya membuat ayat yang lemah kecocokannya tampak
     // seperti jawaban. (Server juga sudah mengosongkan sumber untuk
     // jawaban seperti ini; ini pengaman untuk jawaban lama dari cache.)
-    const tidakDitemukan = String(j.jawaban || "").includes("Tidak ditemukan jawaban di koleksi");
+    // Aturannya sama dengan jawabanMenolak() di server: cukup jawaban
+    // DIAWALI "tidak ditemukan" — AI boleh memparafrasa penolakannya,
+    // dan cocok kalimat baku persis sudah terbukti lolos 2026-11-10.
+    const tidakDitemukan = /^\s*["'«“”]?\s*tidak ditemukan/i.test(String(j.jawaban || ""));
     tanyaSumber = tidakDitemukan ? [] : (j.sumber || []);
     $("tanyaSumber").innerHTML = tanyaSumber.map((s, i) =>
       `<button class="card sumber" type="button" data-i="${i}"><strong>${esc(s.rujukan)}</strong><span>${esc((s.teks || "").slice(0, 160))}…</span></button>`

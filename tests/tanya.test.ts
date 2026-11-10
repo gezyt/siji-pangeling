@@ -29,11 +29,14 @@ const stub = Bun.serve({
       stubHits++;
       // Stub meniru dua perilaku AI: menjawab biasa, atau menolak
       // bila prompt-nya menyebut "cinta" (skenario "tidak ditemukan"
-      // meski ada sumber yang terambil).
+      // meski ada sumber yang terambil). Penolakannya sengaja
+      // DIPARAFRASA — meniru AI asli 2026-11-10 ("Tidak ditemukan
+      // hadits tentang korupsi ...") — supaya uji membuktikan
+      // deteksi penolakan tidak bergantung pada kalimat baku persis.
       const b: any = await req.json().catch(() => ({}));
       const prompt = String(b?.messages?.[1]?.content ?? "");
       const isi = prompt.includes("cinta")
-        ? "Tidak ditemukan jawaban di koleksi Siji Pangeling untuk pertanyaan ini."
+        ? "Tidak ditemukan jawaban tentang cinta di koleksi Siji Pangeling untuk pertanyaan ini."
         : "Jawaban contoh berdasarkan QS. Al-Baqarah 2:153.";
       return Response.json({ choices: [{ message: { content: isi } }] });
     }
@@ -84,6 +87,11 @@ beforeAll(() => {
     [10, 24, "An-Nur", 56, "24:56", "", "Dan dirikanlah salat, tunaikanlah zakat, dan taatlah kepada Rasul agar kamu diberi rahmat."],
     [11, 40, "Ghafir", 57, "40:57", "", "Sungguh, penciptaan langit dan bumi itu lebih besar daripada penciptaan manusia, akan tetapi kebanyakan manusia tidak mengetahui."],
     [12, 12, "Yusuf", 8, "12:8", "", "Sesungguhnya Yusuf dan saudaranya lebih dicintai oleh ayah kami daripada kami, padahal kami satu golongan."],
+    // Ayat-ayat unsur korupsi (dipakai uji peta konsep korupsi).
+    [13, 2, "Al-Baqarah", 188, "2:188", "", "Dan janganlah kamu makan harta di antara kamu dengan jalan yang batil, dan (janganlah) kamu menyuap dengan harta itu kepada para hakim, dengan maksud agar kamu dapat memakan sebagian harta orang lain itu dengan jalan dosa, padahal kamu mengetahui."],
+    [14, 5, "Al-Ma'idah", 38, "5:38", "", "Adapun orang laki-laki maupun perempuan yang mencuri, potonglah tangan keduanya (sebagai) balasan atas perbuatan yang mereka lakukan dan sebagai siksaan dari Allah."],
+    [15, 3, "Ali 'Imran", 161, "3:161", "", "Dan tidak mungkin seorang Nabi berkhianat (dalam urusan harta rampasan perang). Barang siapa berkhianat, niscaya pada hari Kiamat dia akan datang membawa apa yang dikhianatkannya."],
+    [16, 4, "An-Nisa", 58, "4:58", "", "Sungguh, Allah menyuruhmu menyampaikan amanat kepada yang berhak menerimanya, dan apabila kamu menetapkan hukum di antara manusia hendaknya kamu menetapkannya dengan adil."],
   ];
   for (const [id, surahNo, surahNama, ayatNo, key, arab, terjemahan] of ayatTambah) {
     db.query(
@@ -141,9 +149,9 @@ test("cariSumber: kata langka (cinta) mengalahkan kata umum (allah)", () => {
   expect(ayat[0]!.ayat).toBe(31);
 });
 
-test("jawabPertanyaan: bila AI menolak, sumber tidak ikut dikembalikan", async () => {
+test("jawabPertanyaan: bila AI menolak (dengan parafrasa), sumber tidak ikut dikembalikan", async () => {
   const hasil = await tanya.jawabPertanyaan("Allah itu cinta kepada siapa?");
-  expect(hasil.jawaban).toContain("Tidak ditemukan jawaban di koleksi");
+  expect(hasil.jawaban).toContain("Tidak ditemukan");
   expect(hasil.sumber).toEqual([]);
   expect(hasil.dariCache).toBe(false);
   // Panggilan kedua dari cache: tetap tanpa sumber.
@@ -152,9 +160,15 @@ test("jawabPertanyaan: bila AI menolak, sumber tidak ikut dikembalikan", async (
   expect(kedua.sumber).toEqual([]);
 });
 
-test("jawabanMenolak mengenali kalimat penolakan", () => {
+test("jawabanMenolak mengenali penolakan baku dan parafrasa, bukan kalimat di tengah jawaban", () => {
   expect(tanya.jawabanMenolak("Tidak ditemukan jawaban di koleksi Siji Pangeling untuk pertanyaan ini.")).toBe(true);
+  // Parafrasa seperti jawaban AI asli 2026-11-10 untuk korupsi.
+  expect(tanya.jawabanMenolak("Tidak ditemukan hadits tentang korupsi di koleksi Siji Pangeling untuk pertanyaan ini.")).toBe(true);
+  expect(tanya.jawabanMenolak("  \"Tidak ditemukan jawaban untuk pertanyaan ini.\"")).toBe(true);
+  expect(tanya.jawabanMenolak("tidak ditemukan sumber yang relevan.")).toBe(true);
   expect(tanya.jawabanMenolak("Sabar adalah penolong. (QS. Al-Baqarah 2:153)")).toBe(false);
+  // "tidak ditemukan" di TENGAH jawaban bukan penolakan.
+  expect(tanya.jawabanMenolak("Menurut sumber, hadits itu tidak ditemukan di sini, tetapi ayatnya ada.")).toBe(false);
 });
 
 test("cariSumber menemukan hadits niat dan siroh hijrah", () => {
@@ -183,6 +197,9 @@ test("stemKata: imbuhan Indonesia diringkas ke bentuk kanonik", () => {
   expect(tanya.stemKata("nabi")).toBe("nabi");
   expect(tanya.stemKata("sabar")).toBe("sabar");
   expect(tanya.stemKata("tuhan")).toBe("tuhan");
+  // Kata serapan berakhiran -si: "-i"-nya bagian dari kata, bukan akhiran.
+  expect(tanya.stemKata("korupsi")).toBe("korupsi");
+  expect(tanya.stemKata("polisi")).toBe("polisi");
 });
 
 test("kataKunci memakai stem: dicintai jadi cinta, terbesar jadi besar", () => {
@@ -216,6 +233,39 @@ test("cariSumber: makhluk terbesar menemukan 40:57 lewat peta konsep", () => {
   // 40:57 cocok "besar" dan "cipta" (dari peta makhluk); 2:255 hanya
   // cocok "makhluk". Tanpa peta konsep 40:57 ada di posisi 61.
   expect(ayat.slice(0, 5).some((a) => a.rujukan.includes("40:57"))).toBe(true);
+});
+
+test("perluasKataKunci: korupsi diperluas ke unsur-unsurnya", () => {
+  const kunci = tanya.perluasKataKunci(tanya.kataKunci("carikan hadits tentang korupsi"));
+  expect(kunci).toContain("korupsi");
+  expect(kunci).toContain("cari");
+  // "mencuri" ter-stem jadi "curi"; "khianat", "batil", "amanah",
+  // "amanat" tetap; "suap" menemukan "menyuap" lewat LIKE.
+  expect(kunci).toContain("curi");
+  expect(kunci).toContain("khianat");
+  expect(kunci).toContain("batil");
+  expect(kunci).toContain("amanah");
+  expect(kunci).toContain("amanat");
+});
+
+test("cariSumber: pertanyaan korupsi menemukan ayat-ayat unsurnya", () => {
+  const sumber = tanya.cariSumber("carikan hadits tentang korupsi");
+  const ayat = sumber.filter((s) => s.modul === "ayat").slice(0, 5);
+  const rujukan = ayat.map((a) => a.rujukan);
+  // Keempat ayat unsur korupsi harus masuk lima besar: 2:188 (batil +
+  // suap), 5:38 (mencuri), 3:161 (khianat), 4:58 (amanat). Sebelum
+  // peringkat didahulukan jumlah kata kunci, 2:188 terbenam di
+  // posisi 44 karena "amanah" (2 ayat) mengangkat ayat lain.
+  for (const target of ["2:188", "5:38", "3:161", "4:58"]) {
+    expect(rujukan.some((r) => r.includes(target))).toBe(true);
+  }
+});
+
+test("cariJawabanBaku: entri korupsi cocok dengan pertanyaannya", () => {
+  dbMod.upsertJawabanBaku("Carikan hadits tentang korupsi", "korupsi", "Jawaban baku korupsi.", "[]");
+  expect(tanya.cariJawabanBaku("carikan hadits tentang korupsi")?.jawaban).toBe("Jawaban baku korupsi.");
+  expect(tanya.cariJawabanBaku("apa hukum korupsi dalam Islam?")?.jawaban).toBe("Jawaban baku korupsi.");
+  expect(tanya.cariJawabanBaku("apa itu sabar?")?.jawaban).not.toBe("Jawaban baku korupsi.");
 });
 
 test("cariJawabanBaku: empat entri baru cocok dengan pertanyaannya", () => {

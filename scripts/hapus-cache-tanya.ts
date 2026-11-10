@@ -26,6 +26,10 @@ const DAFTAR = [
   "Apa makhluk yang paling besar?",
   "hadits tentang niat beramal",
   "kursi dibandingkan dengan arsy seperti cincin di padang pasir",
+  // 2026-11-10: penolakan berparafrasa + 10 sumber tak relevan ikut
+  // tersimpan di cache; hapus supaya pertanyaan ini dicari ulang
+  // setelah perbaikan deteksi penolakan dan peta konsep korupsi.
+  "carikan hadits tentang korupsi",
   ...process.argv.slice(2),
 ];
 

@@ -286,6 +286,65 @@ benar):
 - **Yang ditunda:** pencarian semantik (embeddings, Fase 4) — lihat
   hasil lapis ini dulu.
 
+## 6c. Lanjutan 2026-11-10 siang — penolakan berparafrasa + korupsi (P0)
+
+Foto Pak Gun pagi ini menunjukkan bug lama kambuh dengan rupa baru:
+"carikan hadits tentang korupsi" dijawab AI "Tidak ditemukan hadits
+tentang korupsi di koleksi..." — parafrasa, bukan kalimat baku —
+sehingga `jawabanMenolak()` (cocok kalimat persis) lolos dan 10
+sumber tak relevan ikut tampil + tersimpan di cache 7 hari.
+
+- **Deteksi penolakan toleran parafrasa** (`jawabanMenolak()` di
+  `src/tanya.ts`, dan pengaman yang sama di `public/index.html`):
+  cukup jawabannya DIAWALI "tidak ditemukan" (toleran huruf besar/
+  kecil, spasi, tanda kutip di depan). "Tidak ditemukan" di TENGAH
+  jawaban tetap dianggap jawaban. Prompt sistem
+  (`prompts/sistem-tanya.md` + `PROMPT_DEFAULT` di kode) diperketat:
+  bila sumber tidak cukup, AI harus menjawab PERSIS dengan kalimat
+  baku, "tanpa mengubah, menambah, atau memparafrasa satu kata pun".
+- **Korupsi ≠ mencuri.** Mencuri = mengambil sembunyi-sembunyi
+  (5:38); korupsi = penyalahgunaan amanah — suap, makan harta batil,
+  ghulul/khianat. Unsur-unsurnya ADA di koleksi (terverifikasi:
+  2:188 makan harta batil + menyuap hakim, 4:29, 3:161 berkhianat,
+  5:38, 4:58 amanat, HR. Muslim No. 213 "bila dipercaya ia
+  berkhianat"); kata "korupsi" sendiri 0 cocok sehingga tidak
+  terambil. Perbaikan: "korupsi" masuk peta konsep (→ mencuri, suap,
+  khianat, harta, batil, amanah, amanat) + jawaban baku ke-8
+  (pemicu "korupsi", sumber 2:188, 5:38, 3:161, 4:58, Muslim No. 213)
+  dengan redaksi yang disetujui Pak Gun. Catatan: "suap" tidak
+  menemukan "menyuap" (2:188) lewat LIKE — "menyuap" tidak mengandung
+  "suap" (asimilasi meny- + suap); 2:188 tetap terambil lewat
+  "batil" dan "harta".
+- **Peringkat: jumlah kata kunci didahulukan** (`cariGabung()` di
+  `src/tanya.ts` — dulu skor kelangkaan dulu). Bukti perlunya:
+  dengan urutan lama, "amanah" (hanya 2 ayat) mengangkat QS. 64:12
+  (tentang Rasul menyampaikan risalah — bukan soal korupsi) ke
+  peringkat 1 untuk pertanyaan korupsi, sementara QS. 2:188
+  (cocok "harta" + "batil") terbenam di posisi 44. Dengan urutan
+  baru, 5 besar untuk "carikan hadits tentang korupsi" di DB asli:
+  57:7, 8:27, 3:161, 2:188, 4:161. Stemming juga diperbaiki: "-i"
+  di akhir kata serapan ("korupsi", "polisi", "fungsi") bukan
+  akhiran, jadi "korupsi" tidak lagi ter-stem jadi "korups" (yang
+  membuat kunci peta konsepnya tidak cocok).
+- **Hapus cache:** "carikan hadits tentang korupsi" ditambah ke
+  `scripts/hapus-cache-tanya.ts`.
+- **Uji:** 28/28 `bun test` lolos (3 uji baru: penolakan parafrasa,
+  perluasan korupsi, baku korupsi, retrieval korupsi — keempat ayat
+  unsurnya masuk 5 besar; tanpa regresi). E2E server asli vs stub
+  9router (DB salinan yang sudah di-seed): "carikan hadits tentang
+  korupsi" dijawab baku (`dariBaku: true`, sumber 2:188, 5:38, 3:161,
+  4:58 — Muslim No. 213 dilewati di DB lokal, ada di VPS); stub yang
+  menolak dengan parafrasa ("Tidak ditemukan jawaban tentang cinta
+  ...") menghasilkan `sumber: []` — bukti jalur penolakan bekerja
+  ujung-ke-ujung. Keterbatasan yang ditemui saat E2E (di luar cakupan
+  lapis ini): stemming "terbang" -> "bang" dan "penemu" -> "emu"
+  membuat pertanyaan buatan "hadits tentang pesawat terbang" dan
+  "siapa penemu listrik menurut hadits?" menemukan ayat-ayat "bangun"
+  dan "menemukan" — keduanya stem salah yang kebetulan cocok sebagai
+  substring. Perlu perbaikan stemming (mis. daftar pengecualian kata
+  dasar berawalan "ter"/"pen") bila pertanyaan semacam ini nyata
+  masuk; untuk sekarang tidak dikerjakan.
+
 ## 7. Perintah deploy (setelah build — jalankan di VPS)
 
 ```bash

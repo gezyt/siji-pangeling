@@ -45,8 +45,8 @@ dan diperiksa SEBELUM cache dan SEBELUM memanggil AI — tanpa biaya AI,
 tanpa risiko AI salah merangkai. Tiap entri punya `pemicu` (kata kunci,
 dipisah koma, semuanya harus ada di pertanyaan; makin banyak pemicunya,
 makin spesifik) dan `sumber` (JSON, supaya kartu sumber di frontend
-tetap bisa diklik). Isi awal (sabar, ikhlas, ayat kursi, niat,
-mustahik, dicintai Allah, makhluk terbesar — 7 entri) lewat
+tetap bisa diklik). Isi awal (8 entri: sabar, ikhlas, ayat kursi, niat, mustahik,
+dicintai Allah, makhluk terbesar, korupsi) lewat
 `bun run seed:jawaban-baku` — menambah/mengubah entri = edit
 `scripts/seed-jawaban-baku.ts` lalu jalankan ulang (upsert, tidak perlu
 restart). Jawaban baku ditandai di halaman dengan "✦ Jawaban kurasi
@@ -61,7 +61,7 @@ diberikan sebagai argumen; tidak perlu restart).
 
 Instalasi 9router di VPS (sekali saja): `./scripts/install-9router.sh` (lalu langkah manual dashboard: hubungkan provider, buat key Siji, catat nama model — petunjuk lengkap di komentar skrip itu). Unit systemd: `systemd/9router.service`.
 
-Uji: `bun test` (25 uji: kata kunci + stemming, retrieval + peta konsep, jawaban baku, hapus cache, rate limit, stub 9router).
+Uji: `bun test` (28 uji: kata kunci + stemming, retrieval + peta konsep, jawaban baku, hapus cache, rate limit, stub 9router).
 
 ## Skema per modul (fase 2)
 

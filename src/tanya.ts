@@ -64,7 +64,7 @@ export const TIDAK_DITEMUKAN =
  * Isinya SAMA dengan file itu — ubah instruksinya di file, bukan di sini,
  * supaya yang dibaca Pak Gun dan yang dipakai server selalu satu sumber.
  */
-const PROMPT_DEFAULT = `Kamu adalah penjawab di situs Siji Pangeling. Jawablah HANYA berdasarkan sumber-sumber di bawah ini. Setiap pernyataan faktual harus disertai kutipan sumbernya dengan format persis seperti yang diberikan (mis. QS. Al-Baqarah 2:153, HR. Bukhari No. 1). Jangan menambah nomor ayat, nomor hadits, atau isi yang tidak ada di sumber. Bila sumber tidak cukup untuk menjawab, katakan "Tidak ditemukan jawaban di koleksi Siji Pangeling untuk pertanyaan ini." Jangan mengeluarkan fatwa atau putusan hukum; untuk soal hukum, arahkan untuk bertanya ke ustadz atau ahli. Jawablah dalam Bahasa Indonesia, nada tenang dan sederhana, maksimal 250 kata.`;
+const PROMPT_DEFAULT = `Kamu adalah penjawab di situs Siji Pangeling. Jawablah HANYA berdasarkan sumber-sumber di bawah ini. Setiap pernyataan faktual harus disertai kutipan sumbernya dengan format persis seperti yang diberikan (mis. QS. Al-Baqarah 2:153, HR. Bukhari No. 1). Jangan menambah nomor ayat, nomor hadits, atau isi yang tidak ada di sumber. Bila sumber tidak cukup untuk menjawab, jawablah PERSIS dengan kalimat berikut, tanpa mengubah, menambah, atau memparafrasa satu kata pun: "Tidak ditemukan jawaban di koleksi Siji Pangeling untuk pertanyaan ini." Jangan mengeluarkan fatwa atau putusan hukum; untuk soal hukum, arahkan untuk bertanya ke ustadz atau ahli. Jawablah dalam Bahasa Indonesia, nada tenang dan sederhana, maksimal 250 kata.`;
 
 /**
  * Muat system prompt dari prompts/sistem-tanya.md (dibaca saat server
@@ -140,6 +140,12 @@ export function stemKata(kata: string): string {
     }
   }
   for (const [ak, min] of AKHIRAN) {
+    // "-i" di akhir kata serapan ("korupsi", "polisi", "fungsi") adalah
+    // bagian dari kata itu sendiri, bukan akhiran — jangan dipotong,
+    // kalau tidak "korupsi" jadi "korups" dan kunci peta konsepnya
+    // tidak cocok. Akhiran -i yang asli ("cintai", "sayangi") tidak
+    // berakhiran "si".
+    if (ak === "i" && k.endsWith("si")) continue;
     if (k.endsWith(ak) && k.length - ak.length >= min) {
       k = k.slice(0, -ak.length);
       break;
@@ -173,6 +179,13 @@ export function kataKunci(pertanyaan: string): string[] {
 const PETA_KONSEP: Record<string, string[]> = {
   mustahik: ["fakir", "miskin", "amil", "mualaf", "sahaya", "berhutang"],
   makhluk: ["penciptaan", "arsy"],
+  // Korupsi: kata "korupsi" tidak muncul di satu pun teks sumber
+  // (0 cocok), padahal unsur-unsurnya ada — suap dan makan harta
+  // batil (2:188, 4:29), khianat atas harta (3:161), amanat (4:58),
+  // dan hadits tanda munafik "bila dipercaya ia berkhianat"
+  // (HR. Muslim No. 213). Tanpa peta ini pertanyaan tentang korupsi
+  // hanya menemukan ayat-ayat "mencari" (dari "carikan" -> "cari").
+  korupsi: ["mencuri", "suap", "khianat", "harta", "batil", "amanah", "amanat"],
 };
 
 export function perluasKataKunci(kunci: string[]): string[] {
@@ -206,6 +219,13 @@ function potong(teks: string, maks = 600): string {
  * "Allah itu cinta kepada siapa?" adalah ayat-ayat acak yang kebetulan
  * menyebut Allah.
  *
+ * Urutan: JUMLAH kata kunci yang cocok didahulukan, baru skor
+ * kelangkaan. Satu kata langka saja tidak boleh mengalahkan ayat yang
+ * cocok dua kata kunci — tanpa ini, "amanah" (hanya 2 ayat) mengangkat
+ * QS. 64:12 (tentang Rasul menyampaikan risalah, bukan soal korupsi)
+ * ke peringkat 1 untuk "carikan hadits tentang korupsi", sementara
+ * QS. 2:188 (cocok "harta" + "batil") terbenam di posisi 44.
+ *
  * Batas uji 100 (bukan 20): kata "cinta" saja cocok 31 ayat — dengan
  * batas 20, ayat kunci seperti 3:31 terpotong dari daftar "cinta" dan
  * tidak pernah mendapat bobotnya, sehingga peringkat jatuh kembali
@@ -231,7 +251,7 @@ function cariGabung<T extends { id: number }>(
     }
   }
   return [...skor.values()]
-    .sort((a, b) => b.skor - a.skor || b.n - a.n)
+    .sort((a, b) => b.n - a.n || b.skor - a.skor)
     .slice(0, limit)
     .map((s) => s.item);
 }
@@ -398,9 +418,22 @@ export async function jawabPertanyaan(pertanyaanMentah: string): Promise<HasilTa
   return hasil;
 }
 
-/** Benar bila jawaban menyatakan tidak menemukan jawaban di koleksi. */
+/**
+ * Benar bila jawaban menyatakan tidak menemukan jawaban di koleksi.
+ *
+ * Dulu: cocok kalimat baku persis ("Tidak ditemukan jawaban di
+ * koleksi ..."). Itu rapuh: AI boleh memparafrasa penolakannya
+ * ("Tidak ditemukan hadits tentang korupsi di koleksi ..."), dan
+ * sumber tak relevan pun ikut tampil + tersimpan di cache — persis
+ * yang terjadi 2026-11-10. Sekarang: cukup jawabannya DIAWALI
+ * "tidak ditemukan" (toleran huruf besar/kecil, spasi, dan tanda
+ * kutip di depan). Jawaban wajar tidak pernah diawali kalimat itu;
+ * kalimat "tidak ditemukan" di TENGAH jawaban (mis. "..., tetapi
+ * hadits itu tidak ditemukan di sini") tetap dianggap jawaban.
+ * Frontend (public/index.html) memakai aturan yang sama.
+ */
 export function jawabanMenolak(jawaban: string): boolean {
-  return jawaban.includes("Tidak ditemukan jawaban di koleksi");
+  return /^\s*["'«“”]?\s*tidak ditemukan/i.test(jawaban);
 }
 
 // ---------------------------------------------------------------------------
