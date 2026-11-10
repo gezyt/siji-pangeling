@@ -288,14 +288,20 @@ Sebagian kecil entri berupa rujukan silang mengikuti teks sumber
 Di VPS, jalankan `bun run import:tafsir` sekali setelah deploy
 (tanpa restart — server membaca DB per permintaan).
 
-## Siroh pilot: timeline Hijrah + peta skematis (fase 6)
+## Siroh: timeline lengkap 26 peristiwa (fase 6, dilengkapi 2026-11-10)
 
 Tidak ada API siroh terstruktur yang terverifikasi seperti
-Quran.com / hadith-api, jadi isi pilot ini ditulis sebagai
+Quran.com / hadith-api, jadi isi modul ini ditulis sebagai
 seed dari ringkasan Ar-Rahiq al-Makhtum (al-Mubarakfuri):
-8 peristiwa Hijrah Makkah -> Madinah, masing-masing dengan
+26 peristiwa dari kelahiran (570 M) sampai wafat Nabi (11 H)
+— 10 Makkah, 8 Hijrah, 8 Madinah — masing-masing dengan
 hikmah (pelajaran yang bisa dipetik, bukan kutipan hadits)
-dan sumber di kolom `sumber`.
+dan sumber di kolom `sumber`. Draf 18 peristiwa baru diaudit
+dan disetujui Pak Gun sebelum dibangun; 8 Hijrah tetap verbatim
+(hanya dinomori ulang jadi 11–18). Thaif digabung ke Tahun
+Kesedihan. Perintah seed: `bun run seed:siroh` (isi bila kosong)
+atau `bun run seed:siroh -- --reset` (isi ulang) — di VPS wajib
+`--reset` karena 8 Hijrah sudah ada.
 
 Kejujuran tanggal: tanggal Hijri (27 Safar, 1, 8, 12
 Rabiul Awal 1 H) konsisten di sumber yang merujuk

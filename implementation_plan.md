@@ -368,7 +368,8 @@ Atas audit 6,4/10 dan lampu hijau Pak Gun ("lanjut aja codingnya"):
 - **Halaman Tentang** (`public/tentang.html`): pengelola (Gunanto,
   S.Pd., guru Matematika SMPN 1 Punggur), sumber tiap modul
   (ayat: Quran.com + Kemenag; hadits: 4 kitab edisi Indonesia
-  dari hadith-api fawazahmed0; siroh: 8 peristiwa Hijrah;
+  dari hadith-api fawazahmed0; siroh: 26 peristiwa (timeline
+  lengkap kelahiran–wafat);
   artikel: 5 tulisan pengelola; tafsir: 6.236 ayat, Tafsir Kemenag
   via equran.id, tingkat 'mendalam'),
   metodologi Tanya Jawab + "bukan fatwa" + jawaban kurasi,
@@ -459,6 +460,32 @@ Atas pilihan Pak Gun ("Ya, bangun impor tafsir dari equran.id"):
   untuk `bangunBarisTafsir` — lengkap, jumlah salah, teks kosong,
   ayat tak ada di peta, respons tanpa daftar); `bun check` tetap
   12 galat lama.
+
+## 6g. Lanjutan 2026-11-10 siang — siroh lengkap 26 peristiwa (P2)
+
+Atas pilihan Pak Gun ("Draf siroh dulu") lalu "Draf sudah benar,
+bangun seed-nya":
+
+- **Draf** (`~/workspace/your_files/draf-siroh-lengkap/DRAF-Siroh-Lengkap-26-Peristiwa.md`,
+  di luar repo): 18 peristiwa baru (10 Makkah + 8 Madinah) dalam
+  format seed, lengkap dengan catatan kejujuran tanggal yang perlu
+  diperiksa Pak Gun — hari kelahiran 12 Rabiul Awal (masyhur,
+  diperselisihkan), tahun Isra Mi'raj 620/621, usia Khadijah 40
+  tahun (masyhur), Thaif digabung ke Tahun Kesedihan supaya tetap
+  18 peristiwa. Disetujui tanpa koreksi.
+- **Seed** (`scripts/seed-siroh-hijrah.ts` ditulis ulang): 26
+  peristiwa (Makkah 1–10, Hijrah 11–18 teks verbatim dari seed
+  awal, Madinah 19–26). Komentar header diperbarui (cakupan penuh
+  + catatan tanggal yang diperselisihkan + peringatan `--reset`).
+- **Peta Hijrah** (`public/index.html`): angka dalam kurung
+  dinomori ulang mengikuti timeline baru — Makkah (11–13), Gua
+  Tsur (14), jalur pesisir (15), Quba (16), Madinah (17–18).
+  Nomor lingkaran rute (1–4) tidak berubah — itu nomor
+  pemberhentian, bukan nomor peristiwa.
+- **Perhatian deploy:** di VPS siroh sudah berisi 8 Hijrah, jadi
+  `bun run seed:siroh` tanpa `--reset` akan DILEWATI (bukan
+  ditambah). Setelah deploy, jalankan
+  `bun run seed:siroh -- --reset` agar ke-26 peristiwa terisi.
 - **Uji:** 29/29 `bun test` lolos (1 uji baru: pertanyaan suap
   menemukan 3580 + 1337/1336; tanpa regresi).
 - **Deploy di VPS:** `./scripts/deploy.sh` lalu
