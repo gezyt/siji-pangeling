@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Logo Siji Pangeling">
+  <!-- Bulan sabit putih di atas teal — tanda yang sama dengan ☾ di judul situs. -->
+  <rect width="512" height="512" rx="96" fill="#0f766e"/>
+  <mask id="sabit">
+    <rect width="512" height="512" fill="#fff"/>
+    <circle cx="330" cy="225" r="150" fill="#000"/>
+  </mask>
+  <circle cx="256" cy="256" r="150" fill="#fff" mask="url(#sabit)"/>
+  <path d="M395 102 L403 122 L423 130 L403 138 L395 158 L387 138 L367 130 L387 122 Z" fill="#fff"/>
+</svg>

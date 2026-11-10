@@ -121,6 +121,25 @@ Backend: `hitungCariSemua()` di `src/db.ts` menghitung gabungan id
 FTS + LIKE (cerminan `cariModul`) supaya angka sama dengan hasil
 yang bisa dimuat; `cariSemua()` kini mengembalikan `total` juga.
 
+### Aksesibilitas & visual (P4, 2026-11-10)
+
+- Teks redup `--muted` dari `#78716c` (kontras 4,56:1) menjadi
+  `#57534e` (7,25:1 di latar `#faf9f6`, lolos AAA); teks kecil
+  .85rem → .9rem (±14,4px), tombol kecil .8rem → .85rem, tag
+  .75rem → .8rem. Berlaku di halaman utama dan Tentang.
+- Fokus keyboard: garis fokus teal muda di SEMUA elemen interaktif
+  (sebelumnya hanya input/tab/tombol utama — tombol Salin, Detail,
+  chip contoh/riwayat, kartu sumber belum punya); tautan "Lewati
+  ke konten" di paling atas (tersembunyi sampai difokuskan);
+  tab punya `id` + `aria-controls`, panel `#hasil` ber-
+  `role="tabpanel"` + `aria-labelledby` ke tab aktif; tombol panah
+  kiri/kanan memindahkan tab (pola tablist WAI-ARIA).
+- Logo: bulan sabit putih di atas teal (`public/logo.svg`,
+  dipakai favicon + gambar di judul halaman utama dan Tentang);
+  gambar berbagi `public/og-image.png` 1200×630 (dibuat dengan
+  PIL — og:image SVG tidak dibaca WhatsApp/Twitter), jadi
+  `og:image` + `twitter:card summary_large_image` di kedua halaman.
+
 Satu halaman `public/index.html` dengan tab per modul, bukan lagi
 daftar generik dari tabel `konten`:
 

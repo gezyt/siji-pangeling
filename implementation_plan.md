@@ -538,6 +538,44 @@ Atas pilihan Pak Gun ("ya P3"):
 - **Deploy di VPS:** `./scripts/deploy.sh` saja (tanpa impor/seed
   — P3 murni kode + endpoint yang sudah ada).
 
+## 6i. Lanjutan 2026-11-10 siang — aksesibilitas & visual (P4)
+
+Atas pilihan Pak Gun ("gas lanjutkan" setelah P3 di-push):
+
+- **Kontras (temuan audit 10 Nov: teks redup #78716c 13,6px):**
+  `--muted` `#78716c` → `#57534e` di `public/index.html` dan
+  `public/tentang.html` (termasuk isi SVG peta "jalur pesisir").
+  Rasio kontras dihitung dengan Python sebelum mengubah: lama
+  4,56:1 di `#faf9f6` (lolos AA mepet), baru 7,25:1 (lolos AAA);
+  di putih 7,63:1. Teks kecil .85rem → .9rem (±14,4px), tombol
+  kecil .8rem → .85rem, tag .75rem → .8rem.
+- **Keyboard + ARIA:** garis fokus (outline `#99f6e4`) diperluas
+  ke semua elemen interaktif — sebelumnya tombol Salin, Detail,
+  chip contoh/riwayat, dan kartu sumber tidak punya; tautan
+  "Lewati ke konten" di paling atas halaman (tersembunyi sampai
+  difokuskan, target `<main id="konten" tabindex="-1">`); tab
+  mendapat `id="tab-{kunci}"` + `aria-controls="hasil"`, panel
+  `#hasil` ber-`role="tabpanel"` + `aria-labelledby` yang diperbarui
+  `pilihModul()` (dihapus saat tampilan cari-semua, yang bukan
+  panel tab); tombol panah kiri/kanan memindahkan tab aktif dan
+  fokus (pola tablist WAI-ARIA; Tab biasa tetap jalan).
+- **Logo + favicon + og:image:** `public/logo.svg` — bulan sabit
+  putih di atas teal (tanda yang sama dengan ☾ di judul),
+  dipakai sebagai favicon dan gambar di judul kedua halaman.
+  `public/og-image.png` 1200×630 dibuat dengan PIL (DejaVu Sans)
+  — og:image harus PNG karena SVG tidak dibaca WhatsApp/Twitter;
+  `og:image` (+ ukuran + alt) dan `twitter:card
+  summary_large_image` ditambahkan di kedua halaman.
+- **Uji:** 38/38 `bun test` (tanpa perubahan backend); `node
+  --check` pada JS sebaris; E2E server lokal: halaman memuat
+  tautan lewati, logo, og:image, `role="tabpanel"`;
+  `/logo.svg` 200 `image/svg+xml`, `/og-image.png` 200
+  `image/png` 26.718 byte; gambar pratinjau diperiksa visual
+  (sabit + bintang + judul + dua baris subjudul, rapi). `bun
+  check` tetap 12 galat lama.
+- **Deploy di VPS:** `./scripts/deploy.sh` saja (tanpa impor/seed
+  — P4 murni frontend + aset statis).
+
 ## 7. Perintah deploy (setelah build — jalankan di VPS)
 
 ```bash

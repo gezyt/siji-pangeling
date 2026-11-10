@@ -10,14 +10,19 @@
 <meta property="og:url" content="https://siji.pangeling.web.id/">
 <meta property="og:site_name" content="Siji Pangeling">
 <meta property="og:locale" content="id_ID">
-<meta name="twitter:card" content="summary">
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<meta property="og:image" content="https://siji.pangeling.web.id/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Siji Pangeling — Tafsir · Hadits · Siroh">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Siji Pangeling — Tafsir · Hadits · Siroh">
 <meta name="twitter:description" content="Al-Qur'an, hadits, siroh, dan artikel Islam dalam satu tempat — pengingat untuk dibaca dan direnungkan.">
 <title>Siji Pangeling — Tafsir · Hadits · Siroh</title>
 <style>
   :root {
     --teal: #0f766e; --teal-dark: #0b5e57; --paper: #faf9f6;
-    --card: #ffffff; --line: #e7e2d9; --text: #1c1917; --muted: #78716c;
+    --card: #ffffff; --line: #e7e2d9; --text: #1c1917; --muted: #57534e;
     --chip-bg: #ecfdf5; --radius: 16px;
   }
   * { box-sizing: border-box; }
@@ -25,6 +30,7 @@
     margin: 0; background: var(--paper); color: var(--text); line-height: 1.6; }
   header { background: var(--teal); color: #fff; padding: 2rem 1rem 1.5rem; text-align: center; }
   header h1 { margin: 0; font-size: 1.7rem; letter-spacing: .01em; }
+  header h1 .logo { vertical-align: -5px; margin-right: .15rem; }
   header p { margin: .3rem 0 0; opacity: .88; font-size: .95rem; }
   main { max-width: 760px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
   .tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
@@ -35,7 +41,15 @@
   .search { display: flex; gap: .5rem; }
   .search input, .surah select, .surah input { flex: 1; min-width: 0; padding: .85rem 1rem; border: 1px solid #d6d3cb;
     border-radius: 12px; font-size: 1rem; background: #fff; }
-  .search input:focus, .tab:focus, .btn:focus, .surah select:focus, .surah input:focus { outline: 3px solid #99f6e4; outline-offset: 1px; }
+  .search input:focus, .tab:focus, .btn:focus, .surah select:focus, .surah input:focus,
+  .salin:focus, .detail-btn:focus, .contoh button:focus, .aksi-tanya button:focus,
+  .aksi-tanya a:focus, .sumber:focus, .lewati:focus { outline: 3px solid #99f6e4; outline-offset: 1px; }
+  /* P4: tautan "lewati ke konten" — tersembunyi sampai difokuskan
+     keyboard, supaya pengguna keyboard tidak harus men-tab melewati
+     semua tombol di atas hasil. */
+  .lewati { position: absolute; left: -9999px; top: 0; background: var(--teal); color: #fff;
+    padding: .75rem 1rem; border-radius: 0 0 12px 0; z-index: 10; }
+  .lewati:focus { left: 0; }
   #ayatNo { flex: 0 1 6.5rem; }
   .search button, .btn { padding: .85rem 1.4rem; background: var(--teal); color: #fff;
     border: none; border-radius: 12px; font-size: 1rem; cursor: pointer; }
@@ -57,12 +71,12 @@
     "Traditional Naskh Arabic", serif; font-size: 1.55rem; line-height: 2.1;
     margin: .2rem 0 .9rem; }
   .isi { line-height: 1.75; }
-  .meta { margin-top: .9rem; font-size: .85rem; color: var(--muted);
+  .meta { margin-top: .9rem; font-size: .9rem; color: var(--muted);
     display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
   .tag { display: inline-block; background: var(--chip-bg); color: var(--teal-dark);
-    border-radius: 99px; padding: .1rem .6rem; font-size: .75rem; }
+    border-radius: 99px; padding: .1rem .6rem; font-size: .8rem; }
   .salin, .detail-btn { margin-left: auto; background: none; border: 1px solid var(--line);
-    border-radius: 99px; padding: .25rem .8rem; font-size: .8rem; color: var(--muted); cursor: pointer; }
+    border-radius: 99px; padding: .25rem .8rem; font-size: .85rem; color: var(--muted); cursor: pointer; }
   .detail-btn { margin-left: 0; }
   .detail { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--line); }
   .detail h4 { margin: 1rem 0 .4rem; color: var(--teal-dark); font-size: .95rem; }
@@ -73,7 +87,7 @@
   .peta { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 1rem 1.2rem; margin: 1rem 0; }
   .peta h2 { margin: 0 0 .2rem; font-size: 1rem; color: var(--teal-dark); }
-  .peta p { margin: 0 0 .5rem; font-size: .85rem; color: var(--muted); }
+  .peta p { margin: 0 0 .5rem; font-size: .9rem; color: var(--muted); }
   .peta svg { width: 100%; height: auto; display: block; }
   .kosong, .error { text-align: center; color: var(--muted); padding: 2.5rem 1rem; }
   /* Tab Tanya Jawab: kartu sumber bisa diklik untuk membuka sumbernya
@@ -83,7 +97,7 @@
   .sumber span { font-size: .9rem; color: var(--muted); }
   .contoh { display: flex; flex-wrap: wrap; gap: .4rem; margin: .75rem 0; }
   .contoh button { background: #fff; border: 1px solid var(--line); border-radius: 99px;
-    padding: .35rem .8rem; font-size: .85rem; cursor: pointer; color: var(--teal-dark); }
+    padding: .35rem .8rem; font-size: .9rem; cursor: pointer; color: var(--teal-dark); }
   /* P3 "satu pencarian": kelompok hasil per modul + riwayat. */
   .cari-kelompok { margin: 0 0 1.25rem; }
   .cari-kelompok > h3 { margin: 0 0 .25rem; }
@@ -91,17 +105,17 @@
   .cari-kelompok .kosong { padding: .75rem 1rem; text-align: left; }
   .cari-kelompok .card { margin: .5rem 0; }
   .lihat-semua { margin-top: .25rem; }
-  .contoh .riwayat-label { align-self: center; color: var(--muted); font-size: .85rem; }
+  .contoh .riwayat-label { align-self: center; color: var(--muted); font-size: .9rem; }
   /* Tombol di bawah jawaban Tanya Jawab: salin jawaban dan bagikan
      ke WhatsApp (tautan berisi pertanyaan + jawaban + tautan balik
      ke tab Tanya dengan pertanyaan yang sama). */
   .aksi-tanya { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
   .aksi-tanya button, .aksi-tanya a { background: #fff; border: 1px solid var(--line); border-radius: 99px;
-    padding: .4rem .9rem; font-size: .85rem; cursor: pointer; color: var(--teal-dark); text-decoration: none; }
+    padding: .4rem .9rem; font-size: .9rem; cursor: pointer; color: var(--teal-dark); text-decoration: none; }
   .aksi-tanya button:hover, .aksi-tanya a:hover { border-color: var(--teal); }
-  .catatan { font-size: .85rem; color: var(--muted); margin: .75rem 0 0; }
+  .catatan { font-size: .9rem; color: var(--muted); margin: .75rem 0 0; }
   .lebih { text-align: center; margin-top: 1.5rem; }
-  footer { text-align: center; color: var(--muted); font-size: .85rem; padding: 0 1rem 2rem; }
+  footer { text-align: center; color: var(--muted); font-size: .9rem; padding: 0 1rem 2rem; }
   footer a { color: var(--teal-dark); }
   @media (max-width: 480px) {
     header h1 { font-size: 1.45rem; }
@@ -115,11 +129,12 @@
 </style>
 </head>
 <body>
+<a class="lewati" href="#konten">Lewati ke konten</a>
 <header>
-  <h1>☾ Siji Pangeling</h1>
+  <h1><img class="logo" src="/logo.svg" alt="" width="30" height="30"> Siji Pangeling</h1>
   <p>Tafsir · Hadits · Siroh — pengingat dalam satu pencarian</p>
 </header>
-<main>
+<main id="konten" tabindex="-1">
   <form class="search" id="formCariSemua">
     <input id="qSemua" type="search" placeholder="Cari di semua modul… (mis. sabar)" autocomplete="off" aria-label="Cari di semua modul">
     <button type="submit">Cari semua</button>
@@ -163,7 +178,7 @@
         <text x="70" y="130" text-anchor="middle">Makkah (11–13)</text>
         <circle cx="240" cy="55" r="16" fill="#0f766e" /><text x="240" y="60" text-anchor="middle" fill="#fff" font-weight="700">2</text>
         <text x="240" y="30" text-anchor="middle">Gua Tsur (14)</text>
-        <text x="350" y="48" text-anchor="middle" fill="#78716c" font-size="12">jalur pesisir (15)</text>
+        <text x="350" y="48" text-anchor="middle" fill="#57534e" font-size="12">jalur pesisir (15)</text>
         <circle cx="460" cy="95" r="16" fill="#0f766e" /><text x="460" y="100" text-anchor="middle" fill="#fff" font-weight="700">3</text>
         <text x="460" y="130" text-anchor="middle">Quba (16)</text>
         <circle cx="650" cy="55" r="16" fill="#0f766e" /><text x="650" y="60" text-anchor="middle" fill="#fff" font-weight="700">4</text>
@@ -171,7 +186,7 @@
       </g>
     </svg>
   </section>
-  <div id="hasil" aria-live="polite"><div class="kosong">Memuat konten…</div></div>
+  <div id="hasil" role="tabpanel" aria-live="polite"><div class="kosong">Memuat konten…</div></div>
   <div class="lebih"><button class="btn" id="lebih" hidden>Muat lagi</button></div>
 </main>
 <footer>Sumber ayat: Quran.com · Terjemahan Kemenag RI. Konten ditampilkan apa adanya untuk dibaca dan direnungkan.<br><a href="/tentang.html">Tentang Siji Pangeling</a> · <a href="https://site.pakgun.web.id/" target="_blank" rel="noopener">Blog Pak Gun</a></footer>
@@ -339,7 +354,7 @@ async function muat(ulang) {
 function renderTabs(hitungan) {
   $("tabs").innerHTML = Object.entries(MODUL).map(([kunci, m]) => {
     const n = hitungan ? hitungan[kunci] : null;
-    return `<button class="tab" type="button" role="tab" data-modul="${kunci}" aria-selected="${kunci === state.modul}">${m.label}${n !== null && n !== undefined ? ` <small>(${n})</small>` : ""}</button>`;
+    return `<button class="tab" type="button" role="tab" id="tab-${kunci}" aria-controls="hasil" data-modul="${kunci}" aria-selected="${kunci === state.modul}">${m.label}${n !== null && n !== undefined ? ` <small>(${n})</small>` : ""}</button>`;
   }).join("");
   $("tabs").querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => pilihModul(b.dataset.modul)));
 }
@@ -356,6 +371,7 @@ function pilihModul(kunci, jagaState) {
     state.ayat = ""; $("ayatNo").value = "";
   }
   $("tabs").querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x.dataset.modul === kunci)));
+  $("hasil").setAttribute("aria-labelledby", "tab-" + kunci);
   const tanya = MODUL[kunci].tanya === true;
   $("formCari").style.display = tanya ? "none" : "";
   $("surahWrap").hidden = state.modul !== "ayat";
@@ -433,6 +449,7 @@ async function jalankanCariSemua(q) {
   $("tanyaWrap").hidden = true;
   $("petaSiroh").style.display = "none";
   $("hasil").style.display = "";
+  $("hasil").removeAttribute("aria-labelledby");
   document.querySelector(".lebih").style.display = "none";
   $("hitung").style.display = "";
   $("hasil").innerHTML = '<div class="kosong">Mencari di semua modul…</div>';
@@ -601,6 +618,19 @@ $("riwayatTanya").addEventListener("click", (e) => {
   if (!chip) return;
   $("tanyaQ").value = chip.dataset.riwayat;
   $("formTanya").requestSubmit();
+});
+// P4: navigasi tab dengan tombol panah (pola tablist WAI-ARIA) —
+// Tab tetap bisa dipakai dengan tombol Tab biasa; panah kiri/kanan
+// memindahkan tab aktif dan fokus ke tombolnya.
+$("tabs").addEventListener("keydown", (e) => {
+  if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+  const kunci = Object.keys(MODUL);
+  const i = kunci.indexOf(state.modul);
+  const berikut = e.key === "ArrowRight" ? (i + 1) % kunci.length : (i - 1 + kunci.length) % kunci.length;
+  e.preventDefault();
+  pilihModul(kunci[berikut]);
+  const tombol = $("tabs").querySelector(`[data-modul="${kunci[berikut]}"]`);
+  if (tombol) tombol.focus();
 });
 $("hasil").addEventListener("click", async (e) => {
   const lihat = e.target.closest(".lihat-semua");
