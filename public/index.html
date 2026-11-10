@@ -299,7 +299,7 @@ function kartuAyat(a) {
     <div class="isi">${br(a.terjemahan)}</div>
     <div class="meta">
       ${tags([a.sumber, ...(a.tag || "").split(",").map((t) => t.trim())])}
-      <button class="detail-btn" type="button">Tafsir</button>
+      <button class="detail-btn" type="button">Tafsir &amp; per kata</button>
       ${tombolSalin(a.verse_key + " — " + a.surah_nama + "\n\n" + a.arab + "\n\n" + a.terjemahan)}
     </div>
     <div class="detail" hidden></div>
@@ -839,7 +839,7 @@ $("hasil").addEventListener("click", async (e) => {
   if (!detailBtn) return;
   const card = detailBtn.closest(".card");
   const wadah = card.querySelector(".detail");
-  if (!wadah.hidden) { wadah.hidden = true; detailBtn.textContent = "Tafsir"; return; }
+  if (!wadah.hidden) { wadah.hidden = true; detailBtn.textContent = "Tafsir & per kata"; return; }
   wadah.hidden = false;
   detailBtn.textContent = "Tutup detail";
   wadah.innerHTML = '<div class="kosong" style="padding:1rem">Memuat detail…</div>';
