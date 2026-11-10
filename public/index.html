@@ -84,6 +84,14 @@
   .contoh { display: flex; flex-wrap: wrap; gap: .4rem; margin: .75rem 0; }
   .contoh button { background: #fff; border: 1px solid var(--line); border-radius: 99px;
     padding: .35rem .8rem; font-size: .85rem; cursor: pointer; color: var(--teal-dark); }
+  /* P3 "satu pencarian": kelompok hasil per modul + riwayat. */
+  .cari-kelompok { margin: 0 0 1.25rem; }
+  .cari-kelompok > h3 { margin: 0 0 .25rem; }
+  .cari-kelompok > h3 small { font-weight: 400; color: var(--muted); }
+  .cari-kelompok .kosong { padding: .75rem 1rem; text-align: left; }
+  .cari-kelompok .card { margin: .5rem 0; }
+  .lihat-semua { margin-top: .25rem; }
+  .contoh .riwayat-label { align-self: center; color: var(--muted); font-size: .85rem; }
   /* Tombol di bawah jawaban Tanya Jawab: salin jawaban dan bagikan
      ke WhatsApp (tautan berisi pertanyaan + jawaban + tautan balik
      ke tab Tanya dengan pertanyaan yang sama). */
@@ -112,6 +120,11 @@
   <p>Tafsir · Hadits · Siroh — pengingat dalam satu pencarian</p>
 </header>
 <main>
+  <form class="search" id="formCariSemua">
+    <input id="qSemua" type="search" placeholder="Cari di semua modul… (mis. sabar)" autocomplete="off" aria-label="Cari di semua modul">
+    <button type="submit">Cari semua</button>
+  </form>
+  <div class="contoh" id="riwayatCari" hidden></div>
   <nav class="tabs" id="tabs" role="tablist" aria-label="Modul"></nav>
   <form class="search" id="formCari">
     <input id="q" type="search" placeholder="Cari di modul ini… (mis. sabar)" autocomplete="off" aria-label="Cari di modul ini">
@@ -135,6 +148,7 @@
       <button type="button" data-tanya="Ayat kursi surah apa ayat berapa?">Ayat kursi surah apa ayat berapa?</button>
       <button type="button" data-tanya="Hadits tentang niat">Hadits tentang niat</button>
     </div>
+    <div class="contoh" id="riwayatTanya" hidden></div>
     <div id="tanyaJawaban" aria-live="polite"></div>
     <div id="tanyaSumber"></div>
   </section>
@@ -259,7 +273,7 @@ async function muat(ulang) {
   // dimuat otomatis saat halaman dibuka.
   if (state.modul === "ayat" && !state.q && !state.surah && !state.ayat) {
     if (ulang) {
-      $("hasil").innerHTML = `<div class="kosong">Cari ayat berdasarkan frase — ketik kata atau potongan terjemahan di kolom pencarian di atas.<br>Atau buka ayat tertentu: pilih surah, isi nomor ayat, lalu tekan Buka.</div>`;
+      $("hasil").innerHTML = `<div class="kosong">Cari ayat berdasarkan frase — ketik kata atau potongan terjemahan di kolom pencarian modul di atas, atau pakai kotak “Cari di semua modul” di paling atas.<br>Atau buka ayat tertentu: pilih surah, isi nomor ayat, lalu tekan Buka.</div>`;
     }
     $("hitung").textContent = "";
     $("lebih").hidden = true;
@@ -355,6 +369,96 @@ function pilihModul(kunci, jagaState) {
   if (!menerapkanHash) tulisHash();
 }
 
+// --- P3: satu pencarian (cari semua modul) ---
+// Kotak di paling atas halaman mencari ke empat modul sekaligus lewat
+// /api/cari-semua (backend sudah ada sejak lama, hanya belum dipakai
+// frontend). Hasil dikelompokkan per modul dengan hitungan totalnya,
+// 5 kartu pertama per modul + tautan "Lihat semua" ke tab modulnya.
+// Riwayat disimpan di localStorage (perangkat ini saja, maks 5).
+const BATAS_CARI_SEMUA = 5;
+const KUNCI_RIWAYAT_CARI = "siji-pangeling:riwayat-cari";
+const KUNCI_RIWAYAT_TANYA = "siji-pangeling:riwayat-tanya";
+const MAKS_RIWAYAT = 5;
+let cariSemuaQ = "";
+
+// Murni (mudah diuji): baca/simpan riwayat di localStorage.
+function bacaRiwayat(kunci) {
+  try {
+    const daftar = JSON.parse(localStorage.getItem(kunci) || "[]");
+    return Array.isArray(daftar) ? daftar.filter((x) => typeof x === "string") : [];
+  } catch { return []; }
+}
+function simpanRiwayat(kunci, nilai) {
+  const q = String(nilai || "").trim();
+  if (!q) return bacaRiwayat(kunci);
+  const daftar = [q, ...bacaRiwayat(kunci).filter((x) => x.toLowerCase() !== q.toLowerCase())].slice(0, MAKS_RIWAYAT);
+  try { localStorage.setItem(kunci, JSON.stringify(daftar)); } catch {}
+  return daftar;
+}
+function totalCariSemua(total) {
+  return ["ayat", "hadits", "siroh", "artikel"].reduce((n, k) => n + (total[k] || 0), 0);
+}
+function ringkasanCariSemua(q, total) {
+  const bagian = ["ayat", "hadits", "siroh", "artikel"]
+    .filter((k) => (total[k] || 0) > 0)
+    .map((k) => `${MODUL[k].label} ${total[k]}`);
+  return bagian.length ? `Ditemukan ${totalCariSemua(total)} hasil untuk “${q}” — ${bagian.join(" · ")}.` : "";
+}
+function renderRiwayat(kunci, wadahId, label) {
+  const wadah = $(wadahId);
+  const daftar = bacaRiwayat(kunci);
+  if (!daftar.length) { wadah.hidden = true; wadah.innerHTML = ""; return; }
+  wadah.hidden = false;
+  wadah.innerHTML = `<span class="riwayat-label">${label}</span>` + daftar.map((q) =>
+    `<button type="button" data-riwayat="${esc(q)}">${esc(q)}</button>`).join("");
+}
+function kartuKelompok(kunci, daftar, total) {
+  const m = MODUL[kunci];
+  const isi = daftar.length
+    ? daftar.map(KARTU[kunci]).join("")
+    : `<div class="kosong">Tidak ada hasil di ${m.label}.</div>`;
+  const tautan = total > daftar.length
+    ? `<button class="btn lihat-semua" type="button" data-modul="${kunci}">Lihat semua di ${m.label} (${total}) →</button>`
+    : "";
+  return `<section class="cari-kelompok"><h3>${m.label} <small>(${total} hasil)</small></h3>${isi}${tautan}</section>`;
+}
+async function jalankanCariSemua(q) {
+  if (state.memuat) return;
+  state.memuat = true;
+  cariSemuaQ = q;
+  // Tampilan hasil gabungan menggantikan daftar modul: sembunyikan
+  // pencarian per modul, peta Siroh, dan panel Tanya.
+  $("formCari").style.display = "none";
+  $("surahWrap").hidden = true;
+  $("tanyaWrap").hidden = true;
+  $("petaSiroh").style.display = "none";
+  $("hasil").style.display = "";
+  document.querySelector(".lebih").style.display = "none";
+  $("hitung").style.display = "";
+  $("hasil").innerHTML = '<div class="kosong">Mencari di semua modul…</div>';
+  $("hitung").textContent = "";
+  $("lebih").hidden = true;
+  try {
+    const j = await ambil(`/api/cari-semua?q=${encodeURIComponent(q)}&limit=${BATAS_CARI_SEMUA}`);
+    const total = j.total || {};
+    simpanRiwayat(KUNCI_RIWAYAT_CARI, q);
+    renderRiwayat(KUNCI_RIWAYAT_CARI, "riwayatCari", "Terakhir dicari:");
+    if (!totalCariSemua(total)) {
+      $("hasil").innerHTML = `<div class="kosong">Tidak ditemukan untuk “${esc(q)}” di semua modul. Coba kata lain, atau tanyakan lewat Tanya Jawab.</div><p style="text-align:center"><button class="btn" type="button" id="cariKeTanya">Tanyakan lewat Tanya Jawab</button></p>`;
+      $("hitung").textContent = `Tidak ada hasil untuk “${q}”.`;
+      $("cariKeTanya").addEventListener("click", () => { pilihModul("tanya"); $("tanyaQ").value = q; });
+      return;
+    }
+    $("hasil").innerHTML = ["ayat", "hadits", "siroh", "artikel"].map((k) =>
+      kartuKelompok(k, j[k] || [], total[k] || 0)).join("");
+    $("hitung").textContent = ringkasanCariSemua(q, total);
+  } catch {
+    $("hasil").innerHTML = '<div class="error">Gagal mencari. Periksa koneksi lalu coba lagi.</div>';
+  } finally {
+    state.memuat = false;
+  }
+}
+
 // Routing hash: tiap tab punya alamat sendiri sehingga bisa dibagikan
 // dan di-bookmark (#ayat, #hadits, #siroh, #artikel, #tanya), plus
 // tautan dalam ke ayat (#ayat/2/255), hadits (#hadits/Bukhari/1), dan
@@ -416,6 +520,8 @@ function terapkanHash() {
 window.addEventListener("hashchange", terapkanHash);
 
 async function muatAwal() {
+  renderRiwayat(KUNCI_RIWAYAT_CARI, "riwayatCari", "Terakhir dicari:");
+  renderRiwayat(KUNCI_RIWAYAT_TANYA, "riwayatTanya", "Pertanyaan terakhir:");
   try { renderTabs(await ambil("/api/modul")); }
   catch { renderTabs(null); }
   try {
@@ -478,7 +584,38 @@ $("ayatNo").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); bukaAyatTertentu(); }
 });
 $("lebih").addEventListener("click", () => muat(false));
+$("formCariSemua").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const q = $("qSemua").value.trim();
+  if (!q) return;
+  jalankanCariSemua(q);
+});
+$("riwayatCari").addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-riwayat]");
+  if (!chip) return;
+  $("qSemua").value = chip.dataset.riwayat;
+  jalankanCariSemua(chip.dataset.riwayat);
+});
+$("riwayatTanya").addEventListener("click", (e) => {
+  const chip = e.target.closest("[data-riwayat]");
+  if (!chip) return;
+  $("tanyaQ").value = chip.dataset.riwayat;
+  $("formTanya").requestSubmit();
+});
 $("hasil").addEventListener("click", async (e) => {
+  const lihat = e.target.closest(".lihat-semua");
+  if (lihat) {
+    // Pindah ke tab modul itu dengan kata kunci yang sama: isi state
+    // dulu (dan kosongkan surah/ayat supaya tidak membuka satu ayat),
+    // lalu pilihModul dengan jagaState supaya muat() di dalamnya
+    // memakai kata kunci ini, bukan hasil kosong tab sebelumnya.
+    state.q = cariSemuaQ;
+    state.surah = ""; state.ayat = "";
+    pilihModul(lihat.dataset.modul, true);
+    $("q").value = state.q;
+    tulisHash();
+    return;
+  }
   const salin = e.target.closest(".salin");
   if (salin) {
     try { await navigator.clipboard.writeText(salin.dataset.salinan); salin.textContent = "Tersalin ✓"; }
@@ -569,6 +706,9 @@ $("formTanya").addEventListener("submit", async (e) => {
     $("tanyaSumber").innerHTML = tanyaSumber.map((s, i) =>
       `<button class="card sumber" type="button" data-i="${i}"><strong>${esc(s.rujukan)}</strong><span>${esc((s.teks || "").slice(0, 160))}…</span></button>`
     ).join("");
+    // Riwayat pertanyaan Tanya Jawab (localStorage, perangkat ini saja).
+    simpanRiwayat(KUNCI_RIWAYAT_TANYA, q);
+    renderRiwayat(KUNCI_RIWAYAT_TANYA, "riwayatTanya", "Pertanyaan terakhir:");
   } catch (err) {
     $("tanyaJawaban").innerHTML = `<div class="error">${esc(err.message || "Gagal mendapatkan jawaban. Coba lagi.")}</div>`;
   } finally {

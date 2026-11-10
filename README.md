@@ -96,12 +96,30 @@ hasil cari, seperti `/api/cari` lama):
 - `GET /api/hadits?kitab=&status_sanad=&q=`
 - `GET /api/siroh?q=` — urutan timeline
 - `GET /api/artikel?kategori=&q=`
-- `GET /api/cari-semua?q=sabar&limit=20` — `{ayat, hadits, siroh, artikel}`
+- `GET /api/cari-semua?q=sabar&limit=20` — `{ayat, hadits, siroh, artikel}` + `total` (hitungan per modul, tanpa batas)
 
 API tulis untuk modul baru BELUM dibuka; pengisian modul baru lewat
 skrip impor / panel admin fase berikut, bukan lewat endpoint publik.
 
 ## Frontend per modul (fase 3)
+
+### Satu pencarian (P3, 2026-11-10)
+
+Kotak "Cari di semua modul" di paling atas halaman mencari ke empat
+modul sekaligus lewat `GET /api/cari-semua` (endpoint sudah ada sejak
+lama, baru dipakai frontend di P3). Hasil dikelompokkan per modul
+dengan hitungan totalnya — 5 kartu pertama per modul, lalu tombol
+"Lihat semua di {modul} ({total})" yang pindah ke tab modul itu
+dengan kata kunci yang sama. Modul tanpa hasil tetap ditampilkan
+dengan pesan "Tidak ada hasil di {modul}."; bila keempatnya kosong,
+tampil pesan jelas + tombol "Tanyakan lewat Tanya Jawab" (mengisi
+kolom Tanya, tidak mengirim otomatis). Riwayat 5 pencarian terakhir
+dan 5 pertanyaan Tanya terakhir disimpan di localStorage (perangkat
+pengunjung saja) dan tampil sebagai chip — chip cari langsung
+mencari ulang, chip Tanya mengisi lalu mengirim seperti chip contoh.
+Backend: `hitungCariSemua()` di `src/db.ts` menghitung gabungan id
+FTS + LIKE (cerminan `cariModul`) supaya angka sama dengan hasil
+yang bisa dimuat; `cariSemua()` kini mengembalikan `total` juga.
 
 Satu halaman `public/index.html` dengan tab per modul, bukan lagi
 daftar generik dari tabel `konten`:

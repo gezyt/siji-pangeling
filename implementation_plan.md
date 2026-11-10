@@ -493,6 +493,51 @@ bangun seed-nya":
   Bukhari/Muslim dilewati karena sudah ada; tanpa restart —
   server membaca DB per permintaan).
 
+## 6h. Lanjutan 2026-11-10 siang — satu pencarian (P3)
+
+Atas pilihan Pak Gun ("ya P3"):
+
+- **Temuan awal:** backend `/api/cari-semua` sudah ada sejak lama
+  (mengembalikan `{ayat, hadits, siroh, artikel}`) tapi frontend
+  tidak pernah memakainya — tiap tab hanya mencari di modulnya
+  sendiri, padahal tagline situs "pengingat dalam satu pencarian".
+  Satu-satunya yang kurang di backend: hitungan total per modul
+  (hasil cari per modul selama ini array tanpa total).
+- **Backend** (`src/db.ts`): `hitungCariModul()` — gabungan id
+  FTS MATCH + LIKE, didedup, cerminan persis `cariModul()` supaya
+  angka = hasil yang bisa dimuat. `hitungCariSemua(q)` per modul;
+  `cariSemua()` kini mengembalikan `total` juga (bentuk lama
+  ditambah satu kunci, kompatibel). `src/index.ts` tidak berubah
+  (meneruskan `cariSemua` apa adanya).
+- **Frontend** (`public/index.html`): form `#formCariSemua` di
+  paling atas + `#riwayatCari`; hasil gabungan dirender ke `#hasil`
+  per kelompok (`.cari-kelompok`, judul + hitungan, 5 kartu pertama
+  memakai renderer kartu yang sama, tombol `.lihat-semua` bila
+  total > 5); modul kosong tetap tampil dengan pesan; keempatnya
+  kosong → pesan jelas + tombol ke Tanya (isi kolom, tanpa
+  kirim otomatis, sesuai aturan tautan Tanya). "Lihat semua" isi
+  `state.q` dulu lalu `pilihModul(kunci, true)` supaya `muat()`
+  memakai kata kunci itu — dan kosongkan surah/ayat supaya tidak
+  membuka satu ayat. Riwayat localStorage maks 5, duplikat naik
+  ke atas (case-insensitive), JSON rusak → `[]`; chip cari
+  langsung mencari ulang, chip Tanya mengisi + mengirim seperti
+  chip contoh. Teks kosong tab Al-Qur'an kini menyebut kotak
+  pencarian modul dan kotak "Cari di semua modul".
+- **Pelajaran uji:** `bun test` menjalankan semua berkas uji
+  dalam satu proses berbagi modul — berkas kedua yang mengimpor
+  `src/db` memakai DB yang sama dengan berkas pertama. Karena
+  itu seed `tests/cari-semua.test.ts` memakai id 101+ dan kata
+  kunci "kunyit" (tidak ada di seed `tanya.test.ts`); ditulis di
+  header berkas uji supaya tidak terulang.
+- **Uji:** 38/38 `bun test` (4 baru); `node --check` pada JS
+  sebaris; 9/9 uji unit fungsi murni P3 (riwayat + ringkasan,
+  stub localStorage); E2E server lokal + salinan DB asli:
+  `/api/cari-semua?q=sabar&limit=5` → total ayat 91, 5 kartu,
+  pertama 2:153; tanpa hasil → total semua 0. `bun check` tetap
+  12 galat lama (db.ts 1 + index.ts 11).
+- **Deploy di VPS:** `./scripts/deploy.sh` saja (tanpa impor/seed
+  — P3 murni kode + endpoint yang sudah ada).
+
 ## 7. Perintah deploy (setelah build — jalankan di VPS)
 
 ```bash

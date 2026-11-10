@@ -454,6 +454,45 @@ function cariModul(
   return gabung.slice(off, off + lim);
 }
 
+// Hitung jumlah hasil cari per modul (tanpa batas): gabungan id dari
+// FTS MATCH dan LIKE, didedup — cerminan persis dari cariModul di atas,
+// supaya angka yang ditampilkan sama dengan hasil yang bisa dimuat.
+// Dipakai tampilan "satu pencarian" (P3) untuk hitungan per modul.
+function hitungCariModul(
+  tabel: string,
+  fts: string,
+  kolomLike: string[],
+  q: string,
+  filterSql = "",
+  filterParams: any[] = []
+): number {
+  const tokens = tokenCari(q);
+  if (!tokens.length) return 0;
+  const id = new Set<number>();
+  try {
+    const ftsRows = db
+      .query(`SELECT m.id FROM ${fts} f JOIN ${tabel} m ON m.id = f.rowid WHERE ${fts} MATCH ? ${filterSql}`)
+      .all(tokens.map((t) => `${t}*`).join(" "), ...filterParams) as { id: number }[];
+    for (const r of ftsRows) id.add(r.id);
+  } catch {}
+  const like = likeDari(q);
+  const whereLike = kolomLike.map((c) => `${c} LIKE ? ESCAPE '\\'`).join(" OR ");
+  const likeRows = db
+    .query(`SELECT m.id FROM ${tabel} m WHERE (${whereLike}) ${filterSql}`)
+    .all(...kolomLike.map(() => like), ...filterParams) as { id: number }[];
+  for (const r of likeRows) id.add(r.id);
+  return id.size;
+}
+
+export function hitungCariSemua(q: string) {
+  return {
+    ayat: hitungCariModul("ayat", "ayat_fts", ["arab", "terjemahan", "surah_nama"], q),
+    hadits: hitungCariModul("hadits", "hadits_fts", ["matan_arab", "matan_id", "kitab", "perawi"], q),
+    siroh: hitungCariModul("siroh", "siroh_fts", ["judul", "peristiwa", "hikmah", "tempat"], q),
+    artikel: hitungCariModul("artikel", "artikel_fts", ["judul", "isi", "dalil"], q),
+  };
+}
+
 export function daftarSurah() {
   return db
     .query(
@@ -567,6 +606,7 @@ export function cariSemua(q: string, limit = 20) {
     hadits: cariHadits(q, limit, 0),
     siroh: cariSiroh(q, limit, 0),
     artikel: cariArtikel(q, limit, 0),
+    total: hitungCariSemua(q),
   };
 }
 
