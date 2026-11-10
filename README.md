@@ -140,6 +140,41 @@ yang bisa dimuat; `cariSemua()` kini mengembalikan `total` juga.
   PIL — og:image SVG tidak dibaca WhatsApp/Twitter), jadi
   `og:image` + `twitter:card summary_large_image` di kedua halaman.
 
+### Perbaikan audit eksternal (P5, 2026-11-10)
+
+Audit ulang eksternal (7,6/10, naik dari 6,4) menemukan jebakan
+filter surah yang sudah diverifikasi live: cari "sabar" dengan
+dropdown di Al-Baqarah hanya mengembalikan 6 hasil padahal
+totalnya 91, tanpa label cakupan. Perbaikannya:
+
+- **Label cakupan filter surah (P5-A):** bila filter surah aktif,
+  baris hitungan menulis *"Menampilkan 6 hasil untuk 'sabar' di
+  Al-Baqarah (dari 91 di semua surah)"* (total tanpa filter dari
+  `/api/cari-semua`, diambil sekali per pencarian) + tombol
+  *"Cari di semua surah"*; placeholder kolom berubah jadi
+  *"Cari di Al-Baqarah…"*. Pesan kosong pun menyebut surahnya.
+- **Kata kunci ikut pindah tab (P5-B):** `pilihModul` tidak lagi
+  mengosongkan kata kunci; pindah tab langsung mencari kata yang
+  sama di modul baru. Surah/ayat (spesifik Al-Qur'an) tetap
+  diosongkan saat pindah tab.
+- **Empty state membantu (P5-C):** ikon 🔍 + tombol *"Tanyakan
+  lewat Tanya Jawab"* (mengisi kolom Tanya, tidak mengirim
+  otomatis) di pesan kosong tiap modul; pencarian global juga
+  mendapat ikon yang sama.
+- **Mode gelap (P5-D):** blok `html.dark` di kedua halaman
+  (variabel warna; `--teal`/`--teal-dark` tidak diubah karena
+  dipakai sebagai latar tombol dengan teks putih); tombol ☾/☀ di
+  header; default mengikuti `prefers-color-scheme`, pilihan manual
+  di localStorage (`siji-pangeling:tema`), skrip sebaris di
+  `<head>` mencegah kedip saat muat; ikut perubahan perangkat bila
+  belum ada pilihan manual. Kontras gelap dihitung: teks 16,7:1,
+  redup 6,9:1, teks teal 10,3:1. Warna teks teal dipisah jadi
+  `--teal-teks` (terang `#0b5e57`, gelap `#5eead4`) supaya hover
+  tombol (latar gelap + teks putih) tetap terbaca.
+- **Kontak (P5-E):** halaman Tentang kini mencantumkan email
+  pengelola `gunanto1010@gmail.com` (boleh dipublikasikan,
+  dikonfirmasi Pak Gun 2026-11-10) di samping tautan blog.
+
 Satu halaman `public/index.html` dengan tab per modul, bukan lagi
 daftar generik dari tabel `konten`:
 

@@ -19,16 +19,46 @@
 <meta name="twitter:title" content="Siji Pangeling — Tafsir · Hadits · Siroh">
 <meta name="twitter:description" content="Al-Qur'an, hadits, siroh, dan artikel Islam dalam satu tempat — pengingat untuk dibaca dan direnungkan.">
 <title>Siji Pangeling — Tafsir · Hadits · Siroh</title>
+<script>try{var t=localStorage.getItem("siji-pangeling:tema");if(t==="gelap"||(t!=="terang"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch(e){}</script>
 <style>
   :root {
-    --teal: #0f766e; --teal-dark: #0b5e57; --paper: #faf9f6;
+    --teal: #0f766e; --teal-dark: #0b5e57; --teal-teks: #0b5e57; --paper: #faf9f6;
     --card: #ffffff; --line: #e7e2d9; --text: #1c1917; --muted: #57534e;
     --chip-bg: #ecfdf5; --radius: 16px;
   }
+  /* P5-D mode gelap: semua warna lewat variabel, jadi satu blok
+     html.dark menukar paletnya. --teal dan --teal-dark TIDAK diubah:
+     keduanya dipakai sebagai latar tombol/header dengan teks putih
+     (putih di #0f766e = 5,5:1, tetap terbaca di kedua mode). Yang
+     diterangkan hanya warna TEKS teal (--teal-teks). Kontras gelap
+     dihitung: teks #fafaf9 di #1c1917 16,7:1, redup #a8a29e 6,9:1,
+     teks teal #5eead4 di #292524 10,3:1. */
+  html.dark {
+    color-scheme: dark;
+    --teal-teks: #5eead4; --paper: #1c1917;
+    --card: #292524; --line: #44403c; --text: #fafaf9; --muted: #a8a29e;
+    --chip-bg: #134e4a;
+  }
+  html.dark .search input, html.dark .surah select, html.dark .surah input { background: var(--card); color: var(--text); border-color: var(--line); }
+  html.dark .search input::placeholder, html.dark .surah input::placeholder { color: var(--muted); }
+  html.dark .tab { background: var(--card); }
+  html.dark .contoh button, html.dark .aksi-tanya button, html.dark .aksi-tanya a { background: var(--card); }
+  /* Label "jalur pesisir" di peta memakai warna redup lewat kelas,
+     bukan fill sebaris, supaya ikut gelap-terang. */
+  .peta .label-pesisir { fill: var(--muted); }
+  html.dark .peta polyline { stroke: #14b8a6; }
+  html.dark .peta circle { fill: #14b8a6; }
+  /* P5-A: tombol tautan kecil di baris hitungan ("Cari di semua surah"). */
+  .tautan { background: none; border: none; padding: 0; font: inherit; color: var(--teal-teks); text-decoration: underline; cursor: pointer; }
+  /* P5-C: tombol di dalam pesan kosong. */
+  .kosong .btn { margin: .75rem .25rem 0; }
   * { box-sizing: border-box; }
   body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     margin: 0; background: var(--paper); color: var(--text); line-height: 1.6; }
-  header { background: var(--teal); color: #fff; padding: 2rem 1rem 1.5rem; text-align: center; }
+  header { background: var(--teal); color: #fff; padding: 2rem 1rem 1.5rem; text-align: center; position: relative; }
+  /* P5-D: tombol mode gelap di sudut kanan header. */
+  .tema-btn { position: absolute; top: .75rem; right: .75rem; background: rgba(255,255,255,.14); color: #fff;
+    border: 1px solid rgba(255,255,255,.35); border-radius: 99px; padding: .35rem .8rem; font-size: .85rem; cursor: pointer; }
   header h1 { margin: 0; font-size: 1.7rem; letter-spacing: .01em; }
   header h1 .logo { vertical-align: -5px; margin-right: .15rem; }
   header p { margin: .3rem 0 0; opacity: .88; font-size: .95rem; }
@@ -43,7 +73,7 @@
     border-radius: 12px; font-size: 1rem; background: #fff; }
   .search input:focus, .tab:focus, .btn:focus, .surah select:focus, .surah input:focus,
   .salin:focus, .detail-btn:focus, .contoh button:focus, .aksi-tanya button:focus,
-  .aksi-tanya a:focus, .sumber:focus, .lewati:focus { outline: 3px solid #99f6e4; outline-offset: 1px; }
+  .aksi-tanya a:focus, .sumber:focus, .lewati:focus, .tema-btn:focus, .tautan:focus { outline: 3px solid #99f6e4; outline-offset: 1px; }
   /* P4: tautan "lewati ke konten" — tersembunyi sampai difokuskan
      keyboard, supaya pengguna keyboard tidak harus men-tab melewati
      semua tombol di atas hasil. */
@@ -66,38 +96,38 @@
   .hitung { color: var(--muted); font-size: .9rem; margin: 1rem 0 0; min-height: 1.4em; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 1.25rem 1.4rem; margin: 1rem 0; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
-  .card h3 { margin: 0 0 .6rem; color: var(--teal-dark); font-size: 1.05rem; line-height: 1.4; }
+  .card h3 { margin: 0 0 .6rem; color: var(--teal-teks); font-size: 1.05rem; line-height: 1.4; }
   .arab { direction: rtl; text-align: right; font-family: "Amiri", "Scheherazade New",
     "Traditional Naskh Arabic", serif; font-size: 1.55rem; line-height: 2.1;
     margin: .2rem 0 .9rem; }
   .isi { line-height: 1.75; }
   .meta { margin-top: .9rem; font-size: .9rem; color: var(--muted);
     display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
-  .tag { display: inline-block; background: var(--chip-bg); color: var(--teal-dark);
+  .tag { display: inline-block; background: var(--chip-bg); color: var(--teal-teks);
     border-radius: 99px; padding: .1rem .6rem; font-size: .8rem; }
   .salin, .detail-btn { margin-left: auto; background: none; border: 1px solid var(--line);
     border-radius: 99px; padding: .25rem .8rem; font-size: .85rem; color: var(--muted); cursor: pointer; }
   .detail-btn { margin-left: 0; }
   .detail { margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--line); }
-  .detail h4 { margin: 1rem 0 .4rem; color: var(--teal-dark); font-size: .95rem; }
+  .detail h4 { margin: 1rem 0 .4rem; color: var(--teal-teks); font-size: .95rem; }
   .detail h4:first-child { margin-top: 0; }
   .kata { display: flex; flex-wrap: wrap; gap: .5rem; }
   .kata span { border: 1px solid var(--line); border-radius: 10px; padding: .3rem .6rem; font-size: .9rem; }
   .kata b { font-family: "Amiri", serif; font-size: 1.1rem; }
   .peta { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 1rem 1.2rem; margin: 1rem 0; }
-  .peta h2 { margin: 0 0 .2rem; font-size: 1rem; color: var(--teal-dark); }
+  .peta h2 { margin: 0 0 .2rem; font-size: 1rem; color: var(--teal-teks); }
   .peta p { margin: 0 0 .5rem; font-size: .9rem; color: var(--muted); }
   .peta svg { width: 100%; height: auto; display: block; }
   .kosong, .error { text-align: center; color: var(--muted); padding: 2.5rem 1rem; }
   /* Tab Tanya Jawab: kartu sumber bisa diklik untuk membuka sumbernya
      di tab modul asalnya (ayat/hadits/siroh/artikel). */
   .sumber { display: block; width: 100%; text-align: left; cursor: pointer; font: inherit; color: inherit; }
-  .sumber strong { display: block; color: var(--teal-dark); margin-bottom: .25rem; }
+  .sumber strong { display: block; color: var(--teal-teks); margin-bottom: .25rem; }
   .sumber span { font-size: .9rem; color: var(--muted); }
   .contoh { display: flex; flex-wrap: wrap; gap: .4rem; margin: .75rem 0; }
   .contoh button { background: #fff; border: 1px solid var(--line); border-radius: 99px;
-    padding: .35rem .8rem; font-size: .9rem; cursor: pointer; color: var(--teal-dark); }
+    padding: .35rem .8rem; font-size: .9rem; cursor: pointer; color: var(--teal-teks); }
   /* P3 "satu pencarian": kelompok hasil per modul + riwayat. */
   .cari-kelompok { margin: 0 0 1.25rem; }
   .cari-kelompok > h3 { margin: 0 0 .25rem; }
@@ -111,12 +141,12 @@
      ke tab Tanya dengan pertanyaan yang sama). */
   .aksi-tanya { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
   .aksi-tanya button, .aksi-tanya a { background: #fff; border: 1px solid var(--line); border-radius: 99px;
-    padding: .4rem .9rem; font-size: .9rem; cursor: pointer; color: var(--teal-dark); text-decoration: none; }
+    padding: .4rem .9rem; font-size: .9rem; cursor: pointer; color: var(--teal-teks); text-decoration: none; }
   .aksi-tanya button:hover, .aksi-tanya a:hover { border-color: var(--teal); }
   .catatan { font-size: .9rem; color: var(--muted); margin: .75rem 0 0; }
   .lebih { text-align: center; margin-top: 1.5rem; }
   footer { text-align: center; color: var(--muted); font-size: .9rem; padding: 0 1rem 2rem; }
-  footer a { color: var(--teal-dark); }
+  footer a { color: var(--teal-teks); }
   @media (max-width: 480px) {
     header h1 { font-size: 1.45rem; }
     .search { flex-direction: column; }
@@ -131,6 +161,7 @@
 <body>
 <a class="lewati" href="#konten">Lewati ke konten</a>
 <header>
+  <button id="temaGelap" type="button" class="tema-btn" aria-label="Ganti ke mode gelap">☾ Mode gelap</button>
   <h1><img class="logo" src="/logo.svg" alt="" width="30" height="30"> Siji Pangeling</h1>
   <p>Tafsir · Hadits · Siroh — pengingat dalam satu pencarian</p>
 </header>
@@ -178,7 +209,7 @@
         <text x="70" y="130" text-anchor="middle">Makkah (11–13)</text>
         <circle cx="240" cy="55" r="16" fill="#0f766e" /><text x="240" y="60" text-anchor="middle" fill="#fff" font-weight="700">2</text>
         <text x="240" y="30" text-anchor="middle">Gua Tsur (14)</text>
-        <text x="350" y="48" text-anchor="middle" fill="#57534e" font-size="12">jalur pesisir (15)</text>
+        <text x="350" y="48" text-anchor="middle" class="label-pesisir" font-size="12">jalur pesisir (15)</text>
         <circle cx="460" cy="95" r="16" fill="#0f766e" /><text x="460" y="100" text-anchor="middle" fill="#fff" font-weight="700">3</text>
         <text x="460" y="130" text-anchor="middle">Quba (16)</text>
         <circle cx="650" cy="55" r="16" fill="#0f766e" /><text x="650" y="60" text-anchor="middle" fill="#fff" font-weight="700">4</text>
@@ -211,6 +242,41 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const br = (s) => esc(s).replace(/\n/g, "<br>");
 const tags = (daftar) => daftar.filter(Boolean).map((t) => `<span class="tag">${esc(t)}</span>`).join("");
+
+// --- P5-D: mode gelap ---
+// Pilihan manual di localStorage mengalahkan default perangkat;
+// tanpa pilihan manual, ikuti prefers-color-scheme. Skrip sebaris
+// di <head> sudah memasang class .dark sebelum cat pertama supaya
+// tidak berkedip; di sini tinggal menyelaraskan label tombol.
+const KUNCI_TEMA = "siji-pangeling:tema";
+function temaGelapAktif() {
+  try {
+    const t = localStorage.getItem(KUNCI_TEMA);
+    if (t === "gelap") return true;
+    if (t === "terang") return false;
+  } catch {}
+  return matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function terapkanTema() {
+  const gelap = temaGelapAktif();
+  document.documentElement.classList.toggle("dark", gelap);
+  const tombol = $("temaGelap");
+  if (tombol) {
+    tombol.textContent = gelap ? "☀ Mode terang" : "☾ Mode gelap";
+    tombol.setAttribute("aria-label", gelap ? "Ganti ke mode terang" : "Ganti ke mode gelap");
+  }
+}
+$("temaGelap").addEventListener("click", () => {
+  const gelap = !document.documentElement.classList.contains("dark");
+  try { localStorage.setItem(KUNCI_TEMA, gelap ? "gelap" : "terang"); } catch {}
+  terapkanTema();
+});
+// Bila perangkat berganti gelap-terang dan pengguna belum memilih
+// manual, ikuti perangkat.
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  try { if (!localStorage.getItem(KUNCI_TEMA)) terapkanTema(); } catch { terapkanTema(); }
+});
+terapkanTema();
 
 function tombolSalin(teks) {
   return `<button class="salin" data-salinan="${esc(teks)}">Salin</button>`;
@@ -278,6 +344,19 @@ async function ambil(url) {
   return r.json();
 }
 
+// P5-A: daftar surah untuk nama surah di label cakupan pencarian.
+let daftarSurah = [];
+function namaSurah(no) {
+  const s = daftarSurah.find((x) => String(x.surah_no) === String(no));
+  return s ? s.surah_nama : ("Surah " + no);
+}
+// P5-A: placeholder kolom cari mengikuti filter surah yang aktif.
+function perbaruiPlaceholder() {
+  $("q").placeholder = state.modul === "ayat" && state.surah
+    ? `Cari di ${namaSurah(state.surah)}… (mis. sabar)`
+    : `Cari di ${MODUL[state.modul].label}… (mis. sabar)`;
+}
+
 async function muat(ulang) {
   if (state.memuat) return;
   state.memuat = true;
@@ -332,16 +411,44 @@ async function muat(ulang) {
     }
     if (ulang) $("hasil").innerHTML = "";
     if (!data.length && ulang) {
-      $("hasil").innerHTML = `<div class="kosong">${state.q
-        ? `Tidak ditemukan untuk “${esc(state.q)}” di modul ini. Coba kata lain.`
-        : esc(m.kosong)}</div>`;
+      if (state.q) {
+        // P5-C: pesan kosong yang membantu — ikon + tombol Tanya.
+        // P5-A: bila filter surah aktif, sebut surahnya dan tawarkan
+        // cari di semua surah (jangan biarkan pengguna mengira
+        // tidak ada hasil sama sekali).
+        const diSurah = state.modul === "ayat" && state.surah;
+        const cakupan = diSurah ? ` di ${esc(namaSurah(state.surah))}` : ` di ${m.label}`;
+        const tombolSurah = diSurah
+          ? ` <button class="btn" type="button" id="kosongSemuaSurah">Cari di semua surah</button>` : "";
+        $("hasil").innerHTML = `<div class="kosong">🔍<br>Tidak ditemukan untuk “${esc(state.q)}”${cakupan}. Coba kata lain, atau tanyakan lewat Tanya Jawab.<br><button class="btn" type="button" id="kosongKeTanya">Tanyakan lewat Tanya Jawab</button>${tombolSurah}</div>`;
+      } else {
+        $("hasil").innerHTML = `<div class="kosong">${esc(m.kosong)}</div>`;
+      }
     } else {
       $("hasil").insertAdjacentHTML("beforeend", data.map(KARTU[state.modul]).join(""));
     }
     state.offset += data.length;
-    $("hitung").textContent = state.q
-      ? (data.length || !ulang ? `Menampilkan ${state.offset} hasil untuk “${state.q}” di ${m.label}.` : "")
-      : (total !== null ? `Menampilkan ${state.offset} dari ${total} ${m.label.toLowerCase()}.` : `Menampilkan ${state.offset} ${m.label.toLowerCase()}.`);
+    if (state.q && state.modul === "ayat" && state.surah) {
+      // P5-A: filter surah aktif — tulis cakupannya di baris hitungan
+      // dan tawarkan sekali ketuk untuk cari di semua surah.
+      const nama = namaSurah(state.surah);
+      const qSaatItu = state.q, surahSaatItu = state.surah;
+      $("hitung").innerHTML = (data.length || !ulang
+        ? `Menampilkan ${state.offset} hasil untuk “${esc(state.q)}” di ${esc(nama)} <span class="hitung-total"></span>. <button type="button" class="tautan" id="cariSemuaSurah">Cari di semua surah</button>`
+        : "");
+      // Total tanpa filter (dari /api/cari-semua) — bila gagal, baris
+      // hitungan tetap benar tanpa bagian "(dari …)".
+      ambil(`/api/cari-semua?q=${encodeURIComponent(state.q)}&limit=1`).then((j) => {
+        if (state.q !== qSaatItu || state.surah !== surahSaatItu) return;
+        const totalSemua = (j.total && j.total.ayat) || 0;
+        const el = document.querySelector("#hitung .hitung-total");
+        if (el && totalSemua) el.textContent = `(dari ${totalSemua} di semua surah)`;
+      }).catch(() => {});
+    } else {
+      $("hitung").textContent = state.q
+        ? (data.length || !ulang ? `Menampilkan ${state.offset} hasil untuk “${state.q}” di ${m.label}.` : "")
+        : (total !== null ? `Menampilkan ${state.offset} dari ${total} ${m.label.toLowerCase()}.` : `Menampilkan ${state.offset} ${m.label.toLowerCase()}.`);
+    }
     $("lebih").hidden = !state.adaLagi;
   } catch (e) {
     if (ulang) $("hasil").innerHTML = '<div class="error">Gagal memuat. Periksa koneksi lalu coba lagi.</div>';
@@ -366,10 +473,13 @@ function renderTabs(hitungan) {
 function pilihModul(kunci, jagaState) {
   state.modul = kunci;
   if (!jagaState) {
-    state.q = ""; $("q").value = "";
+    // P5-B: kata kunci dipertahankan saat pindah tab — pindah tab
+    // langsung mencari kata yang sama di modul baru. Surah/ayat
+    // (spesifik tab Al-Qur'an) tetap diosongkan.
     state.surah = ""; $("surah").value = "";
     state.ayat = ""; $("ayatNo").value = "";
   }
+  $("q").value = state.q;
   $("tabs").querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x.dataset.modul === kunci)));
   $("hasil").setAttribute("aria-labelledby", "tab-" + kunci);
   const tanya = MODUL[kunci].tanya === true;
@@ -380,7 +490,7 @@ function pilihModul(kunci, jagaState) {
   document.querySelector(".lebih").style.display = tanya ? "none" : "";
   $("hitung").style.display = tanya ? "none" : "";
   $("petaSiroh").style.display = state.modul === "siroh" ? "block" : "none";
-  $("q").placeholder = `Cari di ${MODUL[state.modul].label}… (mis. sabar)`;
+  perbaruiPlaceholder();
   if (!tanya) muat(true);
   if (!menerapkanHash) tulisHash();
 }
@@ -461,7 +571,7 @@ async function jalankanCariSemua(q) {
     simpanRiwayat(KUNCI_RIWAYAT_CARI, q);
     renderRiwayat(KUNCI_RIWAYAT_CARI, "riwayatCari", "Terakhir dicari:");
     if (!totalCariSemua(total)) {
-      $("hasil").innerHTML = `<div class="kosong">Tidak ditemukan untuk “${esc(q)}” di semua modul. Coba kata lain, atau tanyakan lewat Tanya Jawab.</div><p style="text-align:center"><button class="btn" type="button" id="cariKeTanya">Tanyakan lewat Tanya Jawab</button></p>`;
+      $("hasil").innerHTML = `<div class="kosong">🔍<br>Tidak ditemukan untuk “${esc(q)}” di semua modul. Coba kata lain, atau tanyakan lewat Tanya Jawab.</div><p style="text-align:center"><button class="btn" type="button" id="cariKeTanya">Tanyakan lewat Tanya Jawab</button></p>`;
       $("hitung").textContent = `Tidak ada hasil untuk “${q}”.`;
       $("cariKeTanya").addEventListener("click", () => { pilihModul("tanya"); $("tanyaQ").value = q; });
       return;
@@ -543,6 +653,7 @@ async function muatAwal() {
   catch { renderTabs(null); }
   try {
     const surah = await ambil("/api/surah");
+    daftarSurah = surah;
     $("surah").innerHTML = `<option value="">Semua surah</option>` + surah.map((s) =>
       `<option value="${s.surah_no}">${s.surah_no}. ${esc(s.surah_nama)} (${s.jumlah})</option>`).join("");
   } catch { $("surah").innerHTML = `<option value="">Semua surah</option>`; }
@@ -570,6 +681,7 @@ $("formCari").addEventListener("submit", (e) => {
 $("surah").addEventListener("change", (e) => {
   state.surah = e.target.value;
   state.ayat = $("ayatNo").value.trim();
+  perbaruiPlaceholder();
   muat(true);
   tulisHash();
 });
@@ -601,6 +713,14 @@ $("ayatNo").addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); bukaAyatTertentu(); }
 });
 $("lebih").addEventListener("click", () => muat(false));
+// P5-A: tombol "Cari di semua surah" di baris hitungan.
+$("hitung").addEventListener("click", (e) => {
+  if (!e.target.closest("#cariSemuaSurah")) return;
+  state.surah = ""; $("surah").value = "";
+  perbaruiPlaceholder();
+  muat(true);
+  tulisHash();
+});
 $("formCariSemua").addEventListener("submit", (e) => {
   e.preventDefault();
   const q = $("qSemua").value.trim();
@@ -643,6 +763,21 @@ $("hasil").addEventListener("click", async (e) => {
     state.surah = ""; state.ayat = "";
     pilihModul(lihat.dataset.modul, true);
     $("q").value = state.q;
+    tulisHash();
+    return;
+  }
+  // P5-C: tombol di pesan kosong per modul.
+  const keTanya = e.target.closest("#kosongKeTanya");
+  if (keTanya) {
+    pilihModul("tanya");
+    $("tanyaQ").value = state.q;
+    return;
+  }
+  const semuaSurah = e.target.closest("#kosongSemuaSurah");
+  if (semuaSurah) {
+    state.surah = ""; $("surah").value = "";
+    perbaruiPlaceholder();
+    muat(true);
     tulisHash();
     return;
   }

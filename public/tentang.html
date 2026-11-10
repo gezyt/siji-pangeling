@@ -19,22 +19,32 @@
 <meta name="twitter:title" content="Tentang Siji Pangeling">
 <meta name="twitter:description" content="Siapa pengelolanya, dari mana isi tiap modul berasal, dan bagaimana Tanya Jawab menyusun jawaban.">
 <title>Tentang — Siji Pangeling</title>
+<script>try{var t=localStorage.getItem("siji-pangeling:tema");if(t==="gelap"||(t!=="terang"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch(e){}</script>
 <style>
   :root {
-    --teal: #0f766e; --teal-dark: #0b5e57; --paper: #faf9f6;
+    --teal: #0f766e; --teal-dark: #0b5e57; --teal-teks: #0b5e57; --paper: #faf9f6;
     --card: #ffffff; --line: #e7e2d9; --text: #1c1917; --muted: #57534e;
     --radius: 16px;
+  }
+  /* P5-D mode gelap (sama seperti halaman utama). */
+  html.dark {
+    color-scheme: dark;
+    --teal-teks: #5eead4; --paper: #1c1917;
+    --card: #292524; --line: #44403c; --text: #fafaf9; --muted: #a8a29e;
   }
   * { box-sizing: border-box; }
   body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     margin: 0; background: var(--paper); color: var(--text); line-height: 1.6; }
-  header { background: var(--teal); color: #fff; padding: 2rem 1rem 1.5rem; text-align: center; }
+  header { background: var(--teal); color: #fff; padding: 2rem 1rem 1.5rem; text-align: center; position: relative; }
+  .tema-btn { position: absolute; top: .75rem; right: .75rem; background: rgba(255,255,255,.14); color: #fff;
+    border: 1px solid rgba(255,255,255,.35); border-radius: 99px; padding: .35rem .8rem; font-size: .85rem; cursor: pointer; }
+  .tema-btn:focus { outline: 3px solid #99f6e4; outline-offset: 1px; }
   header h1 { margin: 0; font-size: 1.7rem; letter-spacing: .01em; }
   header h1 .logo { vertical-align: -5px; margin-right: .15rem; }
   header p { margin: .3rem 0 0; opacity: .88; font-size: .95rem; }
   header a { color: #fff; }
   main { max-width: 760px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
-  h2 { color: var(--teal-dark); font-size: 1.2rem; margin: 2rem 0 .5rem; }
+  h2 { color: var(--teal-teks); font-size: 1.2rem; margin: 2rem 0 .5rem; }
   h2:first-child { margin-top: 0; }
   p { margin: .5rem 0; }
   ul { margin: .5rem 0; padding-left: 1.4rem; }
@@ -42,13 +52,14 @@
   .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 1.25rem 1.4rem; margin: 1rem 0; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
   .card h2 { margin-top: 0; }
-  a { color: var(--teal-dark); }
+  a { color: var(--teal-teks); }
   footer { text-align: center; color: var(--muted); font-size: .9rem; padding: 0 1rem 2rem; }
-  footer a { color: var(--teal-dark); }
+  footer a { color: var(--teal-teks); }
 </style>
 </head>
 <body>
 <header>
+  <button id="temaGelap" type="button" class="tema-btn" aria-label="Ganti ke mode gelap">☾ Mode gelap</button>
   <h1><img class="logo" src="/logo.svg" alt="" width="30" height="30"> Siji Pangeling</h1>
   <p>Tentang situs ini</p>
 </header>
@@ -61,7 +72,7 @@
   <section class="card">
     <h2>Pengelola</h2>
     <p>Siji Pangeling dikelola oleh <strong>Gunanto, S.Pd. (Pak Gun)</strong>, guru Matematika di SMPN 1 Punggur, Lampung Tengah. Situs ini dibuat untuk dipakai sendiri dan dibagikan ke siapa saja yang membutuhkan pengingat.</p>
-    <p>Hubungi pengelola melalui <a href="https://site.pakgun.web.id/" target="_blank" rel="noopener">blog Pak Gun</a>.</p>
+    <p>Hubungi pengelola melalui email <a href="mailto:gunanto1010@gmail.com">gunanto1010@gmail.com</a> atau <a href="https://site.pakgun.web.id/" target="_blank" rel="noopener">blog Pak Gun</a>.</p>
   </section>
 
   <section class="card">
@@ -92,5 +103,38 @@
   </section>
 </main>
 <footer><a href="/">← Kembali ke Siji Pangeling</a></footer>
+<script>
+// P5-D mode gelap (versi ringkas halaman Tentang — kunci dan logika
+// sama dengan halaman utama).
+(function () {
+  var KUNCI = "siji-pangeling:tema";
+  var tombol = document.getElementById("temaGelap");
+  function aktif() {
+    try {
+      var t = localStorage.getItem(KUNCI);
+      if (t === "gelap") return true;
+      if (t === "terang") return false;
+    } catch (e) {}
+    return matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  function terapkan() {
+    var gelap = aktif();
+    document.documentElement.classList.toggle("dark", gelap);
+    if (tombol) {
+      tombol.textContent = gelap ? "☀ Mode terang" : "☾ Mode gelap";
+      tombol.setAttribute("aria-label", gelap ? "Ganti ke mode terang" : "Ganti ke mode gelap");
+    }
+  }
+  tombol.addEventListener("click", function () {
+    var gelap = !document.documentElement.classList.contains("dark");
+    try { localStorage.setItem(KUNCI, gelap ? "gelap" : "terang"); } catch (e) {}
+    terapkan();
+  });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+    try { if (!localStorage.getItem(KUNCI)) terapkan(); } catch (e) { terapkan(); }
+  });
+  terapkan();
+})();
+</script>
 </body>
 </html>

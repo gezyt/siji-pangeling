@@ -576,6 +576,58 @@ Atas pilihan Pak Gun ("gas lanjutkan" setelah P3 di-push):
 - **Deploy di VPS:** `./scripts/deploy.sh` saja (tanpa impor/seed
   — P4 murni frontend + aset statis).
 
+## 6j. Lanjutan 2026-11-10 siang — perbaikan audit eksternal (P5)
+
+Audit ulang eksternal (skor 7,6/10, naik dari 6,4) — diverifikasi
+live sebelum menjawab (angka 6 vs 91, tidak ada dark mode, tidak
+ada mailto/form di Tentang). Rencana P5 disetujui Pak Gun
+("Bangun semua P5"):
+
+- **P5-A jebakan filter surah (prioritas tertinggi):** cari
+  "sabar" dengan dropdown di Al-Baqarah mengembalikan 6 hasil
+  tanpa label cakupan, padahal total 91. Perbaikan: baris hitungan
+  menulis cakupan + total tanpa filter (diambil dari
+  `/api/cari-semua?q=…&limit=1`, sekali per pencarian, dengan
+  penjaga bila kata kunci/surah sudah berubah saat respons tiba)
+  + tombol `.tautan` "Cari di semua surah" (delegasi klik di
+  `#hitung`) + placeholder "Cari di {surah}…" via
+  `perbaruiPlaceholder()` (dipanggil `pilihModul` dan saat surah
+  berubah). Pesan kosong menyebut surahnya + tombol yang sama.
+  Nama surah dari `daftarSurah` (diisi `muatAwal`), fallback
+  "Surah N".
+- **P5-B kata kunci ikut pindah tab:** `pilihModul` tidak lagi
+  mengosongkan `state.q` (dan `$("q").value = state.q` setelahnya);
+  surah/ayat tetap diosongkan karena spesifik tab Al-Qur'an.
+  Hash `?q=` per tab tetap konsisten.
+- **P5-C empty state:** ikon 🔍 + tombol "Tanyakan lewat Tanya
+  Jawab" (cabang baru di handler klik `#hasil`; mengisi kolom
+  Tanya, tidak mengirim otomatis) di pesan kosong tiap modul;
+  pencarian global mendapat ikon yang sama. CSS `.kosong .btn`.
+- **P5-D mode gelap:** `html.dark` di kedua halaman (variabel;
+  `color-scheme: dark`); tombol `.tema-btn` di header; default
+  `prefers-color-scheme`, pilihan manual `localStorage`
+  (`siji-pangeling:tema`), skrip sebaris di `<head>` anti-kedip,
+  ikut perubahan perangkat bila belum ada pilihan manual.
+  `--teal-teks` dipisah dari `--teal-dark` (teks vs latar hover)
+  agar keduanya tetap terbaca di kedua mode. Label "jalur
+  pesisir" di peta memakai kelas `.label-pesisir` (fill lewat
+  `var(--muted)`), bukan fill sebaris. Kontras gelap dihitung
+  dengan Python: teks 16,7:1, redup 6,9:1, teks teal 10,3:1.
+- **P5-E kontak:** Tentang mencantumkan `gunanto1010@gmail.com`
+  (mailto) — alamat dari Pak Gun langsung 2026-11-10 12:13
+  ("kontak boleh dipublish jika diperlukan"). Catatan: alamat
+  `gunantomgmp@gmail.com` (akun Google di memori) sempat
+  dipakai lalu diganti sebelum commit, karena Bapak menyebut
+  alamat yang benar.
+- **Uji:** 38/38 `bun test` (tanpa perubahan backend); `node
+  --check` pada keempat blok `<script>` (utama + Tentang);
+  kontras gelap dihitung; E2E server lokal: penanda tema,
+  `html.dark`, `perbaruiPlaceholder`, tombol-tombol baru, dan
+  mailto terlayani; `/api/cari-semua` tetap 91 untuk "sabar".
+  `bun check` tetap 12 galat lama.
+- **Deploy di VPS:** `./scripts/deploy.sh` saja (tanpa impor/seed
+  — P5 murni frontend).
+
 ## 7. Perintah deploy (setelah build — jalankan di VPS)
 
 ```bash
