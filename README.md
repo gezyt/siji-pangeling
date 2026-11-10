@@ -73,7 +73,8 @@ FTS5 sendiri:
   mis. `2:255`), arab, terjemahan, sumber, tag, konten_id.
   `id` ayat = `id` baris konten asalnya, supaya bisa dilacak balik.
 - `tafsir` — ayat_id, tingkat (`ringkas`/`menengah`/`mendalam`),
-  isi, sumber. Masih kosong, untuk tafsir bertingkat fase berikut.
+  isi, sumber. Terisi 6.236 baris tingkat 'mendalam' (Tafsir
+  Kemenag via equran.id, impor 2026-11-10; `bun run import:tafsir`).
 - `kata` — ayat_id, urut, arab, arti. Masih kosong, untuk terjemah
   per kata fase berikut.
 - `hadits` — kitab, no_hadits, perawi, matan_arab, matan_id,
@@ -108,9 +109,9 @@ daftar generik dari tabel `konten`:
 - Tab **Al-Qur'an** (default): daftar ayat terpaginasi, dropdown
   surah dari `GET /api/surah` (114 surah + jumlah ayat), cari dalam
   modul, tombol **Tafsir & per kata** di tiap kartu yang membuka
-  detail dari `GET /api/ayat?surah=&ayat=` — saat ini tafsir dan
-  kata masih kosong, jadi detail menampilkan catatan bahwa keduanya
-  menyusul pada fase tafsir.
+  detail dari `GET /api/ayat?surah=&ayat=` — tafsir kini terisi
+  untuk semua 6.236 ayat (tingkat 'mendalam', Tafsir Kemenag via
+  equran.id); terjemah per kata masih kosong.
 - Tab **Hadits**: kartu kitab, nomor, perawi, status sanad, matan
   Arab + terjemahan. Saat ini kosong dengan penjelasan bahwa isinya
   menunggu sumber terverifikasi.
@@ -254,6 +255,38 @@ juga ambigu — "suapan" (sesuap makanan) ikut cocok di hadits
 tentang makanan (mis. Tirmidzi 1858, Abu Dawud 3846); hadits
 laknat penyuap tetap di peringkat teratas karena kata
 "melaknati"/"penyuap" lebih langka.
+
+## Tafsir: impor dari equran.id (2026-11-10)
+
+Tafsir per ayat akhirnya terisi — sebelumnya `GET /api/ayat`
+mengembalikan `tafsir: []` untuk semua ayat. Sumbernya Tafsir
+Kemenag lewat equran.id API v2 (publik, gratis, tanpa API key;
+sumber data dinyatakan Kemenag RI). Alasan memilihnya: Quran.com
+punya 0 tafsir Indonesia, AlQuranCloud dan Quranpedia hanya
+berbahasa Arab, sedangkan API resmi LPMQ Kemenag aksesnya
+berlapis (daftar akun, surat permohonan resmi, tunggu token,
+isi survei) dan tanpa dokumentasi endpoint publik.
+
+```bash
+bun run import:tafsir                 # semua 114 surah
+bun run import:tafsir -- --surah=2    # satu surah saja
+bun run import:tafsir -- --reset      # hapus tafsir mendalam, impor ulang
+SIJI_DB=/tmp/uji.db bun run import:tafsir
+```
+
+Yang diimpor: 6.236 tafsir (satu per ayat), tingkat 'mendalam',
+sumber tiap baris "Tafsir Kemenag (via equran.id)". Validasi
+ketat per surah: jumlah entri harus sama dengan jumlahAyat, tiap
+ayat harus ada di tabel ayat, tiap teks harus non-kosong — satu
+surah gagal membatalkan seluruh impor sebelum satu baris pun
+ditulis. Panjang isi rata-rata 1.467 karakter (min 13, maks
+19.245); 2:255 sepanjang 2.922 karakter. equran.id tidak
+melabeli teksnya Wajiz/Tahlili; karena teksnya panjang
+berparagraf (gaya Tahlili), disimpan sebagai 'mendalam'.
+Sebagian kecil entri berupa rujukan silang mengikuti teks sumber
+(mis. "lihat ayat 88" untuk 56:89-91), bukan kesalahan impor.
+Di VPS, jalankan `bun run import:tafsir` sekali setelah deploy
+(tanpa restart — server membaca DB per permintaan).
 
 ## Siroh pilot: timeline Hijrah + peta skematis (fase 6)
 

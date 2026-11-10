@@ -367,9 +367,10 @@ Atas audit 6,4/10 dan lampu hijau Pak Gun ("lanjut aja codingnya"):
   halaman utama + `/tentang.html` 200 saat disajikan lokal.
 - **Halaman Tentang** (`public/tentang.html`): pengelola (Gunanto,
   S.Pd., guru Matematika SMPN 1 Punggur), sumber tiap modul
-  (ayat: Quran.com + Kemenag; hadits: Bukhari + Muslim edisi
-  Indonesia dari hadith-api fawazahmed0; siroh: 8 peristiwa Hijrah;
-  artikel: 5 tulisan pengelola; tafsir: fitur ada, isi kosong),
+  (ayat: Quran.com + Kemenag; hadits: 4 kitab edisi Indonesia
+  dari hadith-api fawazahmed0; siroh: 8 peristiwa Hijrah;
+  artikel: 5 tulisan pengelola; tafsir: 6.236 ayat, Tafsir Kemenag
+  via equran.id, tingkat 'mendalam'),
   metodologi Tanya Jawab + "bukan fatwa" + jawaban kurasi,
   keterbatasan, kontak lewat blog. Tautan dari footer.
 - **Tanya Jawab:** tombol Salin jawaban + Bagikan (WhatsApp) di
@@ -408,6 +409,56 @@ Atas pilihan Pak Gun ("Bangun perluasan hadits"):
   Dawud 3846); hadits laknat tetap teratas karena
   "melaknati"/"penyuap" lebih langka. Perbaikan pencocokan
   batas kata ditunda.
+
+## 6f. Lanjutan 2026-11-10 siang — impor tafsir dari equran.id (P2)
+
+Atas pilihan Pak Gun ("Ya, bangun impor tafsir dari equran.id"):
+
+- **Riset sumber (sebelum membangun):** Quran.com 0 tafsir
+  Indonesia; AlQuranCloud 6 edisi tafsir semuanya Arab; Quranpedia
+  2.198 buku tafsir, 0 Indonesia (Arab 2.153) — plus kebijakannya
+  melarang impor massal. API resmi LPMQ Kemenag
+  (quran-api.lpmqkemenag.id; domain lama quran-api.kemenag.go.id
+  sudah tidak bisa dibuka/DNS) punya Tafsir Ringkas + Tahlili,
+  tetapi akses berlapis: daftar akun, surat permohonan resmi ke
+  Kepala LPMQ (lajnah@kemenag.go.id, cc quran.kemenag@gmail.com),
+  tunggu token, isi survei — baru endpoint diberikan; tanpa
+  dokumentasi endpoint publik. Kata "Wajiz" tidak muncul di
+  halaman LPMQ, jadi belum terkonfirmasi Ringkas = Wajiz.
+- **Sumber yang dipakai — equran.id API v2**
+  (`https://equran.id/api/v2`, publik, gratis, tanpa API key,
+  sumber data dinyatakan Kemenag RI; endpoint
+  `GET /tafsir/{nomor}` per surah, `data.tafsir[]` =
+  `{ayat, teks}`). Terverifikasi live sebelum membangun: surah 1
+  (7/7), 2 (286/286, 2:255 teks Indonesia benar), 36 (83/83),
+  114 (6/6). Alternatif kedua yang juga jalan:
+  quran-api-id.vercel.app.
+- **Impor** (`scripts/import-tafsir.ts`, `bun run import:tafsir`,
+  `--surah=N`, `--reset`): fetch + validasi semua 114 surah dulu
+  (jumlah entri = jumlahAyat, tiap ayat ada di tabel ayat, tiap
+  teks non-kosong; satu surah gagal membatalkan seluruh impor),
+  lalu insert dalam satu transaksi. Terverifikasi impor lokal ke
+  DB salinan: 6.236 tafsir tingkat 'mendalam', sumber "Tafsir
+  Kemenag (via equran.id)"; rata-rata isi 1.467 karakter (min 13,
+  maks 19.245); 2:255 sepanjang 2.922 karakter. E2E server lokal:
+  `/api/ayat?surah=2&ayat=255` mengembalikan 1 entri tafsir
+  'mendalam' — tombol "Tafsir & per kata" di frontend sudah
+  menampilkannya tanpa perubahan frontend.
+- **Kejujuran tingkat:** equran.id tidak melabeli teksnya
+  Wajiz/Tahlili; karena teksnya panjang berparagraf (gaya
+  Tahlili), disimpan sebagai 'mendalam'. Sebagian kecil entri
+  berupa rujukan silang mengikuti teks sumber (mis. "lihat ayat
+  88" untuk 56:89-91), bukan kesalahan impor.
+- **Bug yang ditemukan saat membangun:** skrip impor yang
+  diimpor `bun test` ikut menjalankan alur CLI-nya (fetch 114
+  surah) karena kode top-level jalan saat impor — diperbaiki
+  dengan membungkus alur CLI dalam `main()` + penjaga
+  `if (import.meta.main)`. DB lokal tidak tercemar (tafsir tetap
+  0 baris setelah kejadian).
+- **Uji:** 34/34 `bun test` (5 baru: `tests/import-tafsir.test.ts`
+  untuk `bangunBarisTafsir` — lengkap, jumlah salah, teks kosong,
+  ayat tak ada di peta, respons tanpa daftar); `bun check` tetap
+  12 galat lama.
 - **Uji:** 29/29 `bun test` lolos (1 uji baru: pertanyaan suap
   menemukan 3580 + 1337/1336; tanpa regresi).
 - **Deploy di VPS:** `./scripts/deploy.sh` lalu
