@@ -665,6 +665,48 @@ Interaksi 7,4; Aksesibilitas 7,0; Visual 7,7). Dua catatan:
 - **Deploy di VPS:** `./scripts/deploy.sh` saja (tanpa impor/seed
   — P6 murni frontend).
 
+## 6l. Lanjutan 2026-11-10 siang — impor terjemah per kata (Quran.com)
+
+- **Koreksi atas anggapan lama:** Pak Gun bertanya apakah terjemah
+  per kata memang belum ada sumbernya. Ternyata ADA — saya hanya
+  belum pernah mengecek sumber khusus per kata (riset P2 hanya
+  meneliti sumber TAFSIR; tabel `kata` dibiarkan kosong karena di
+  luar cakupan, bukan karena tidak ada sumber). Sumber: Quran.com
+  API v4 (publik, gratis, tanpa API key), endpoint
+  `verses/by_chapter/{n}?words=true&language=id&word_fields=
+  text_uthmani,translation`. Terverifikasi live di 3 titik:
+  1:1–7, 2:255 (50 kata), 114:1–6. AlQuranCloud gugur (tidak
+  punya edisi per kata). Pak Gun memilih "Bangun impor terjemah
+  per kata" (13:11).
+- **Skrip** `scripts/import-kata.ts` (`bun run import:kata`,
+  `--surah=N`, `--reset`), pola sama seperti `import-tafsir.ts`:
+  ambil per surah (paginasi `per_page=50`), validasi semua dulu
+  (jumlah ayat == jumlah di tabel ayat; tiap ayat ada di peta;
+  tiap kata non-"end" punya Arab + arti Indonesia non-kosong;
+  bahasa arti harus "indonesian"; tanpa posisi ganda), baru
+  insert dalam satu transaksi. Entri `char_type_name: "end"`
+  (nomor ayat) dilewati. `--surah=N` menghapus baris lama surah
+  itu dulu (idempotent). Fungsi murni `bangunBarisKata()`,
+  dijaga `if (import.meta.main)`.
+- **Verbatim:** teks Arab berikut tanda waqaf yang menempel,
+  arti berikut kekhasan sumber (±8.186 arti dengan "Nya"
+  menempel, mis. "menimpaNya"; 255 "didalam/di antara/
+  dibelakang"). Penerjemah tidak dinamai di respons API —
+  atribusi "Quran.com (terjemah per kata bahasa Indonesia)",
+  BUKAN Kemenag.
+- **Uji:** 45/45 `bun test` (38 lama + 7 baru); impor penuh ke
+  salinan DB nyata (~2 menit, 114 surah): 77.429 kata, 6.236/6.236
+  ayat tercakup, 2:255 tepat 50 kata, 1:1 pertama بِسْمِ →
+  "dengan nama"; E2E `/api/ayat?surah=2&ayat=255` → `kata: 50`.
+  `bun check` tetap 12 galat lama. Tanpa perubahan frontend
+  (detail sudah menampilkan `d.kata` bila ada).
+- **Deploy di VPS:** `./scripts/deploy.sh`, lalu
+  `bun run import:kata` sekali (tanpa restart). Setelah impor
+  terverifikasi live, label tombol dikembalikan menjadi
+  "Tafsir & per kata" (commit kecil terpisah — label tidak
+  diubah di commit ini, supaya tidak ada jendela di mana label
+  berjanji sementara data belum ada).
+
 ## 7. Perintah deploy (setelah build — jalankan di VPS)
 
 ```bash

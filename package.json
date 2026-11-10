@@ -10,6 +10,7 @@
     "import:quran": "bun run scripts/import-quran.ts",
     "import:hadits": "bun run scripts/import-hadits.ts",
     "import:tafsir": "bun run scripts/import-tafsir.ts",
+    "import:kata": "bun run scripts/import-kata.ts",
     "seed:siroh": "bun run scripts/seed-siroh-hijrah.ts",
     "seed:artikel": "bun run scripts/seed-artikel-pilot.ts",
     "seed:jawaban-baku": "bun run scripts/seed-jawaban-baku.ts",

@@ -75,8 +75,8 @@ FTS5 sendiri:
 - `tafsir` — ayat_id, tingkat (`ringkas`/`menengah`/`mendalam`),
   isi, sumber. Terisi 6.236 baris tingkat 'mendalam' (Tafsir
   Kemenag via equran.id, impor 2026-11-10; `bun run import:tafsir`).
-- `kata` — ayat_id, urut, arab, arti. Masih kosong, untuk terjemah
-  per kata fase berikut.
+- `kata` — ayat_id, urut, arab, arti. Terisi 77.429 baris (Quran.com
+  API v4, impor 2026-11-10; `bun run import:kata`).
 - `hadits` — kitab, no_hadits, perawi, matan_arab, matan_id,
   status_sanad (`sahih`/`hasan`/`dhaif`/`belum-diverifikasi`),
   kategori, sumber, tag. Masih kosong, menunggu sumber terverifikasi.
@@ -212,10 +212,12 @@ daftar generik dari tabel `konten`:
 
 - Tab **Al-Qur'an** (default): daftar ayat terpaginasi, dropdown
   surah dari `GET /api/surah` (114 surah + jumlah ayat), cari dalam
-  modul, tombol **Tafsir & per kata** di tiap kartu yang membuka
-  detail dari `GET /api/ayat?surah=&ayat=` — tafsir kini terisi
-  untuk semua 6.236 ayat (tingkat 'mendalam', Tafsir Kemenag via
-  equran.id); terjemah per kata masih kosong.
+  modul, tombol **Tafsir** di tiap kartu yang membuka detail dari
+  `GET /api/ayat?surah=&ayat=` — tafsir kini terisi untuk semua
+  6.236 ayat (tingkat 'mendalam', Tafsir Kemenag via equran.id);
+  terjemah per kata 77.429 kata (Quran.com API v4,
+  `bun run import:kata`) — label tombol kembali menjadi
+  "Tafsir & per kata" setelah impor terverifikasi di VPS.
 - Tab **Hadits**: kartu kitab, nomor, perawi, status sanad, matan
   Arab + terjemahan. Saat ini kosong dengan penjelasan bahwa isinya
   menunggu sumber terverifikasi.
@@ -391,6 +393,42 @@ Sebagian kecil entri berupa rujukan silang mengikuti teks sumber
 (mis. "lihat ayat 88" untuk 56:89-91), bukan kesalahan impor.
 Di VPS, jalankan `bun run import:tafsir` sekali setelah deploy
 (tanpa restart — server membaca DB per permintaan).
+
+## Terjemah per kata: 77.429 kata dari Quran.com API v4 (2026-11-10)
+
+Anggapan lama ("belum ada sumber") ternyata keliru: sumbernya ada
+— Quran.com API v4, `GET /v4/verses/by_chapter/{n}?words=true
+&language=id&word_fields=text_uthmani,translation`, publik,
+gratis, tanpa API key. Terverifikasi live di 3 titik sebelum
+dibangun: Al-Fatihah 1:1–7, Ayat Kursi 2:255 (50 kata), An-Nas
+114:1–6. AlQuranCloud tidak punya edisi per kata (hanya terjemah
+per ayat) — gugur.
+
+```bash
+bun run import:kata                 # semua 114 surah
+bun run import:kata -- --surah=2    # satu surah saja
+bun run import:kata -- --reset      # hapus semua kata, impor ulang
+SIJI_DB=/tmp/uji.db bun run import:kata
+```
+
+Yang diimpor: 77.429 kata, mencakup 6.236 dari 6.236 ayat; 2:255
+tepat 50 kata; 1:1 kata pertama بِسْمِ → "dengan nama". Validasi
+ketat per surah: jumlah ayat yang diambil harus sama dengan jumlah
+ayat surah itu di tabel ayat, tiap ayat harus ada di tabel ayat,
+tiap kata (selain entri "end" = nomor ayat) harus punya teks Arab
+dan arti Indonesia non-kosong — satu surah gagal membatalkan
+seluruh impor sebelum satu baris pun ditulis. Entri "end"
+dilewati. Diimpor verbatim: tanda waqaf menempel di teks Arab,
+dan kekhasan arti sumber dipertahankan (±8.186 arti dengan "Nya"
+menempel seperti "menimpaNya", 255 "didalam/di antara/dibelakang")
+— bukan salah ketik impor. Penerjemah per kata tidak disebutkan
+di respons API, jadi atribusi yang dipakai "Quran.com (terjemah
+per kata bahasa Indonesia)", bukan Kemenag. Frontend tidak
+berubah: detail ayat sudah menampilkan `d.kata` bila ada.
+Di VPS, jalankan `bun run import:kata` sekali setelah deploy
+(tanpa restart); lalu label tombol dikembalikan menjadi
+"Tafsir & per kata" (commit kecil terpisah, setelah impor
+terverifikasi live).
 
 ## Siroh: timeline lengkap 26 peristiwa (fase 6, dilengkapi 2026-11-10)
 
