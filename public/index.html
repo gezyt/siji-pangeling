@@ -56,9 +56,11 @@
   body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     margin: 0; background: var(--paper); color: var(--text); line-height: 1.6; }
   header { background: var(--teal); color: #fff; padding: 2rem 1rem 1.5rem; text-align: center; position: relative; }
-  /* P5-D: tombol mode gelap di sudut kanan header. */
+  /* P5-D: tombol mode gelap di sudut kanan header — hanya ikon dalam
+     bulatan, tanpa teks (diubah 10 Nov 2026 atas permintaan Pak Gun). */
   .tema-btn { position: absolute; top: .75rem; right: .75rem; background: rgba(255,255,255,.14); color: #fff;
-    border: 1px solid rgba(255,255,255,.35); border-radius: 99px; padding: .35rem .8rem; font-size: .85rem; cursor: pointer; }
+    border: 1px solid rgba(255,255,255,.35); border-radius: 50%; width: 2.5rem; height: 2.5rem; padding: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 1.15rem; line-height: 1; cursor: pointer; }
   header h1 { margin: 0; font-size: 1.7rem; letter-spacing: .01em; }
   header h1 .logo { vertical-align: -5px; margin-right: .15rem; }
   header p { margin: .3rem 0 0; opacity: .88; font-size: .95rem; }
@@ -161,7 +163,7 @@
 <body>
 <a class="lewati" href="#konten">Lewati ke konten</a>
 <header>
-  <button id="temaGelap" type="button" class="tema-btn" aria-label="Ganti ke mode gelap">☾ Mode gelap</button>
+  <button id="temaGelap" type="button" class="tema-btn" aria-label="Ganti ke mode gelap">☾</button>
   <h1><img class="logo" src="/logo.svg" alt="" width="30" height="30"> Siji Pangeling</h1>
   <p>Tafsir · Hadits · Siroh — pengingat dalam satu pencarian</p>
 </header>
@@ -275,7 +277,7 @@ function terapkanTema() {
   document.documentElement.classList.toggle("dark", gelap);
   const tombol = $("temaGelap");
   if (tombol) {
-    tombol.textContent = gelap ? "☀ Mode terang" : "☾ Mode gelap";
+    tombol.textContent = gelap ? "☀" : "☾";
     tombol.setAttribute("aria-label", gelap ? "Ganti ke mode terang" : "Ganti ke mode gelap");
   }
 }
@@ -290,6 +292,34 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
   try { if (!localStorage.getItem(KUNCI_TEMA)) terapkanTema(); } catch { terapkanTema(); }
 });
 terapkanTema();
+
+// --- Penghitung pengunjung (GezyView — layanan yang sama dengan blog) ---
+// Lingkup yang disetujui Pak Gun (10 Nov 2026): total + per-modul, tampil
+// publik; Tanya hanya dihitung kunjungan tabnya, tanpa menghitung pertanyaan.
+// Per-artikel TIDAK dihitung (di luar lingkup no. 1).
+// Fail-open: kalau layanan mati, timeout, atau diblokir, aplikasi tetap jalan.
+const GEZYVIEW_URL = "https://view.pakgun.web.id";
+const modulDihitung = new Set();
+async function kirimHit(path) {
+  try {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 2000);
+    await fetch(GEZYVIEW_URL + "/hit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+      signal: c.signal,
+    });
+    clearTimeout(t);
+  } catch {}
+}
+function hitungModul(kunci) {
+  if (modulDihitung.has(kunci)) return;
+  modulDihitung.add(kunci);
+  kirimHit("/siji/modul/" + kunci);
+}
+// Hit total sekali saat halaman dibuka (dedup 1 pengunjung/hari di server).
+kirimHit("/siji/kunjungan");
 
 function tombolSalin(teks) {
   return `<button class="salin" data-salinan="${esc(teks)}">Salin</button>`;
@@ -552,6 +582,7 @@ function pilihModul(kunci, jagaState) {
   perbaruiPlaceholder();
   if (!tanya) muat(true);
   if (!menerapkanHash) tulisHash();
+  hitungModul(kunci);
 }
 
 // --- P3: satu pencarian (cari semua modul) ---
