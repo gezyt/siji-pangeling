@@ -69,7 +69,6 @@
   .tab { border: 1px solid var(--line); background: #fff; color: var(--text);
     border-radius: 12px; padding: .6rem .95rem; font-size: .95rem; cursor: pointer; }
   .tab[aria-selected="true"] { background: var(--teal); border-color: var(--teal); color: #fff; font-weight: 600; }
-  .tab small { opacity: .75; font-weight: 400; }
   .search { display: flex; gap: .5rem; }
   .search input, .surah select, .surah input { flex: 1; min-width: 0; padding: .85rem 1rem; border: 1px solid #d6d3cb;
     border-radius: 12px; font-size: 1rem; background: #fff; }
@@ -543,10 +542,9 @@ async function muat(ulang) {
   }
 }
 
-function renderTabs(hitungan) {
+function renderTabs() {
   $("tabs").innerHTML = Object.entries(MODUL).map(([kunci, m]) => {
-    const n = hitungan ? hitungan[kunci] : null;
-    return `<button class="tab" type="button" role="tab" id="tab-${kunci}" aria-controls="hasil" data-modul="${kunci}" aria-selected="${kunci === state.modul}">${m.label}${n !== null && n !== undefined ? ` <small>(${n})</small>` : ""}</button>`;
+    return `<button class="tab" type="button" role="tab" id="tab-${kunci}" aria-controls="hasil" data-modul="${kunci}" aria-selected="${kunci === state.modul}">${m.label}</button>`;
   }).join("");
   $("tabs").querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => pilihModul(b.dataset.modul)));
 }
@@ -765,8 +763,10 @@ window.addEventListener("hashchange", terapkanHash);
 async function muatAwal() {
   renderRiwayat(KUNCI_RIWAYAT_CARI, "riwayatCari", "Terakhir dicari:");
   renderRiwayat(KUNCI_RIWAYAT_TANYA, "riwayatTanya", "Pertanyaan terakhir:");
-  try { renderTabs(await ambil("/api/modul")); }
-  catch { renderTabs(null); }
+  // Tombol tab hanya label (tanpa angka hitungan) — jumlah tiap modul
+  // sudah dijelaskan di halaman Tentang. Tanpa /api/modul, muat awal
+  // juga berkurang satu permintaan.
+  renderTabs();
   try {
     const surah = await ambil("/api/surah");
     daftarSurah = surah;
