@@ -164,7 +164,7 @@
 <header>
   <button id="temaGelap" type="button" class="tema-btn" aria-label="Ganti ke mode gelap">☾</button>
   <h1><img class="logo" src="/logo.svg" alt="" width="30" height="30"> Siji Pangeling</h1>
-  <p>Tafsir · Hadits · Siroh — pengingat dalam satu pencarian</p>
+  <p>Tafsir · Hadits · Fiqih · Siroh — pengingat dalam satu pencarian</p>
 </header>
 <main id="konten" tabindex="-1">
   <form class="search" id="formCariSemua">
@@ -196,6 +196,17 @@
     <label for="noHadits">No. hadits:</label>
     <input id="noHadits" type="number" min="1" inputmode="numeric" placeholder="No." aria-label="Nomor hadits">
     <button id="bukaHadits" class="btn" type="button">Buka</button>
+  </div>
+  <div class="surah" id="fiqihWrap" hidden>
+    <label for="kitabFiqih">Kitab:</label>
+    <select id="kitabFiqih" aria-label="Pilih kitab fiqih">
+      <option value="">Semua kitab</option>
+    </select>
+    <label for="babFiqih">Bab:</label>
+    <select id="babFiqih" aria-label="Pilih bab fiqih">
+      <option value="">Semua bab</option>
+    </select>
+    <button id="bukaFiqih" class="btn" type="button">Buka</button>
   </div>
   <section id="tanyaWrap" hidden aria-label="Tanya jawab">
     <form class="search" id="formTanya">
@@ -238,20 +249,21 @@
 <footer>Sumber ayat: Quran.com · Terjemahan Kemenag RI. Konten ditampilkan apa adanya untuk dibaca dan direnungkan.<br><a href="/tentang.html">Tentang Siji Pangeling</a> · <a href="https://site.pakgun.web.id/" target="_blank" rel="noopener">Blog Pak Gun</a></footer>
 <script>
 const LIMIT = 20;
-// Satu halaman, empat modul. Tiap modul memakai endpoint bacanya sendiri
+// Satu halaman, lima modul. Tiap modul memakai endpoint bacanya sendiri
 // (bukan lagi tabel generik), jadi tampilannya bisa mengikuti bentuk
 // datanya: ayat punya surah + arab + terjemahan, hadits punya kitab +
 // status sanad, siroh punya timeline, artikel punya dalil.
 const MODUL = {
   ayat:    { label: "Al-Qur'an", endpoint: "/api/ayat",    kosong: "Belum ada ayat di modul ini. Jalankan impor Al-Qur'an dulu, lalu halaman ini terisi otomatis." },
   hadits:  { label: "Hadits",    endpoint: "/api/hadits",  kosong: "Tidak ada hadits di kitab ini." },
+  fiqh:    { label: "Fiqih",     endpoint: "/api/fiqih",   kosong: "Belum ada kitab fiqih. Jalankan impor fiqih dulu, lalu halaman ini terisi otomatis." },
   siroh:   { label: "Siroh",     endpoint: "/api/siroh",   kosong: "Belum ada kisah siroh. Modul timeline ini sudah siap, isinya menyusul pada fase berikutnya." },
   artikel: { label: "Artikel",   endpoint: "/api/artikel", kosong: "Belum ada artikel. Modul Islam kontemporer ini sudah siap, isinya menyusul pada fase berikutnya." },
   // Tanya Jawab bukan modul daftar: tab ini menampilkan panel tanya
   // sendiri (form + jawaban + kartu sumber), bukan muat() daftar.
   tanya:   { label: "Tanya Jawab", endpoint: "/api/tanya", kosong: "", tanya: true },
 };
-let state = { modul: "ayat", q: "", surah: "", ayat: "", kitab: "", noHadits: "", offset: 0, total: null, memuat: false, adaLagi: false };
+let state = { modul: "ayat", q: "", surah: "", ayat: "", kitab: "", noHadits: "", kitabFiqih: "", babFiqih: "", fiqihUrut: "", offset: 0, total: null, memuat: false, adaLagi: false };
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -379,7 +391,18 @@ function kartuArtikel(a) {
   </article>`;
 }
 
-const KARTU = { ayat: kartuAyat, hadits: kartuHadits, siroh: kartuSiroh, artikel: kartuArtikel };
+function kartuFiqih(f) {
+  return `<article class="card">
+    <h3>${esc(f.bab)}${f.pasal ? " — " + esc(f.pasal) : ""}</h3>
+    <p class="arab" dir="rtl" lang="ar">${br(f.teks)}</p>
+    <div class="meta">
+      ${tags([f.kitab, f.mazhab ? "Mazhab " + f.mazhab : "", f.sumber])}
+      ${tombolSalin(f.kitab + " — " + f.bab + (f.pasal ? " — " + f.pasal : "") + "\n\n" + f.teks)}
+    </div>
+  </article>`;
+}
+
+const KARTU = { ayat: kartuAyat, hadits: kartuHadits, fiqh: kartuFiqih, siroh: kartuSiroh, artikel: kartuArtikel };
 
 async function ambil(url) {
   const r = await fetch(url);
@@ -389,6 +412,7 @@ async function ambil(url) {
 
 // P5-A: daftar surah untuk nama surah di label cakupan pencarian.
 let daftarSurah = [];
+let daftarKitabFiqih = [];
 function namaSurah(no) {
   const s = daftarSurah.find((x) => String(x.surah_no) === String(no));
   return s ? s.surah_nama : ("Surah " + no);
@@ -397,7 +421,23 @@ function namaSurah(no) {
 function perbaruiPlaceholder() {
   if (state.modul === "ayat" && state.surah) $("q").placeholder = `Cari di ${namaSurah(state.surah)}… (mis. sabar)`;
   else if (state.modul === "hadits" && state.kitab) $("q").placeholder = `Cari di ${state.kitab}… (mis. sabar)`;
+  else if (state.modul === "fiqh" && state.kitabFiqih) $("q").placeholder = `Cari di ${state.kitabFiqih}… (mis. wudu)`;
   else $("q").placeholder = `Cari di ${MODUL[state.modul].label}… (mis. sabar)`;
+}
+
+// Daftar bab satu kitab fiqih (dari /api/fiqih/bab) — cerminan
+// daftarSurah untuk pemilih surah di tab Al-Qur'an.
+let daftarBabFiqih = [];
+async function muatBabFiqih(kitab) {
+  daftarBabFiqih = [];
+  $("babFiqih").innerHTML = `<option value="">Semua bab</option>`;
+  if (!kitab) return;
+  try {
+    const daftar = await ambil(`/api/fiqih/bab?kitab=${encodeURIComponent(kitab)}`);
+    daftarBabFiqih = daftar;
+    $("babFiqih").innerHTML = `<option value="">Semua bab</option>` + daftar.map((b) =>
+      `<option value="${esc(b.bab)}">${esc(b.bab)}</option>`).join("");
+  } catch { /* pemilih bab tetap "Semua bab" bila endpoint gagal */ }
 }
 
 async function muat(ulang) {
@@ -426,6 +466,20 @@ async function muat(ulang) {
   if (state.modul === "hadits" && !state.q && !state.kitab && !state.noHadits) {
     if (ulang) {
       $("hasil").innerHTML = `<div class="kosong">Cari hadits berdasarkan kata — ketik kata dari isi hadits atau nama periwayat di kolom pencarian modul di atas, atau pakai kotak “Cari di semua modul” di paling atas.<br>Atau buka hadits tertentu: pilih kitab, isi nomor hadits, lalu tekan Buka.</div>`;
+    }
+    $("hitung").textContent = "";
+    $("lebih").hidden = true;
+    state.memuat = false;
+    $("lebih").disabled = false;
+    return;
+  }
+  // Modul Fiqih tidak menampilkan apa pun sebelum pengguna mencari
+  // atau membuka kitab/bab tertentu — cerminan tab Al-Qur'an dan
+  // Hadits. Memilih kitab saja tetap menampilkan daftar bagian
+  // kitab itu (seperti memilih surah/kitab saja).
+  if (state.modul === "fiqh" && !state.q && !state.kitabFiqih && !state.babFiqih && !state.fiqihUrut) {
+    if (ulang) {
+      $("hasil").innerHTML = `<div class="kosong">Cari fiqih berdasarkan kata Arab — ketik kata dari isi kitab (mis. الطهارة) di kolom pencarian modul di atas, atau pakai kotak “Cari di semua modul” di paling atas.<br>Atau buka bab tertentu: pilih kitab, pilih bab, lalu tekan Buka.</div>`;
     }
     $("hitung").textContent = "";
     $("lebih").hidden = true;
@@ -469,10 +523,45 @@ async function muat(ulang) {
       }
       return;
     }
+    // Buka satu bagian fiqih tertentu: /api/fiqih?kitab=..&urut=..
+    // mengembalikan satu objek bagian (tautan dalam #fiqih/{kitab}/{urut}).
+    if (state.modul === "fiqh" && state.kitabFiqih && state.fiqihUrut) {
+      try {
+        const satu = await ambil(`/api/fiqih?kitab=${encodeURIComponent(state.kitabFiqih)}&urut=${state.fiqihUrut}`);
+        if (ulang) $("hasil").innerHTML = "";
+        $("hasil").insertAdjacentHTML("beforeend", kartuFiqih(satu));
+        state.offset = 1;
+        $("hitung").textContent = `Menampilkan ${satu.kitab} — ${satu.bab}${satu.pasal ? " — " + satu.pasal : ""}.`;
+        $("lebih").hidden = true;
+      } catch {
+        if (ulang) $("hasil").innerHTML = `<div class="kosong">Bagian No. ${esc(state.fiqihUrut)} tidak ditemukan di ${esc(state.kitabFiqih)}. Periksa kitabnya, lalu coba lagi.</div>`;
+        $("hitung").textContent = "";
+        $("lebih").hidden = true;
+      }
+      return;
+    }
+    // Buka satu bab fiqih: /api/fiqih?kitab=..&bab=.. mengembalikan
+    // seluruh bagian bab itu, urut naik (bukan satu objek).
+    if (state.modul === "fiqh" && state.kitabFiqih && state.babFiqih) {
+      try {
+        const daftar = await ambil(`/api/fiqih?kitab=${encodeURIComponent(state.kitabFiqih)}&bab=${encodeURIComponent(state.babFiqih)}`);
+        if (ulang) $("hasil").innerHTML = "";
+        $("hasil").insertAdjacentHTML("beforeend", daftar.map(kartuFiqih).join(""));
+        state.offset = daftar.length;
+        $("hitung").textContent = `Menampilkan ${daftar.length} bagian — ${state.kitabFiqih} · ${state.babFiqih}.`;
+        $("lebih").hidden = true;
+      } catch {
+        if (ulang) $("hasil").innerHTML = '<div class="error">Gagal memuat bab ini. Periksa koneksi lalu coba lagi.</div>';
+        $("hitung").textContent = "";
+        $("lebih").hidden = true;
+      }
+      return;
+    }
     const p = new URLSearchParams({ limit: String(LIMIT), offset: String(state.offset) });
     if (state.q) p.set("q", state.q);
     if (state.modul === "ayat" && state.surah) p.set("surah", state.surah);
     if (state.modul === "hadits" && state.kitab) p.set("kitab", state.kitab);
+    if (state.modul === "fiqh" && state.kitabFiqih) p.set("kitab", state.kitabFiqih);
     let data, total = null;
     if (state.q) {
       // Cari per modul mengembalikan array, seperti /api/cari lama.
@@ -494,11 +583,14 @@ async function muat(ulang) {
         // tidak ada hasil sama sekali).
         const diSurah = state.modul === "ayat" && state.surah;
         const diKitab = state.modul === "hadits" && state.kitab;
-        const cakupan = diSurah ? ` di ${esc(namaSurah(state.surah))}` : diKitab ? ` di ${esc(state.kitab)}` : ` di ${m.label}`;
+        const diKitabFiqih = state.modul === "fiqh" && state.kitabFiqih;
+        const cakupan = diSurah ? ` di ${esc(namaSurah(state.surah))}` : diKitab ? ` di ${esc(state.kitab)}` : diKitabFiqih ? ` di ${esc(state.kitabFiqih)}` : ` di ${m.label}`;
         const tombolFilter = diSurah
           ? ` <button class="btn" type="button" id="kosongSemuaSurah">Cari di semua surah</button>`
           : diKitab
-          ? ` <button class="btn" type="button" id="kosongSemuaKitab">Cari di semua kitab</button>` : "";
+          ? ` <button class="btn" type="button" id="kosongSemuaKitab">Cari di semua kitab</button>`
+          : diKitabFiqih
+          ? ` <button class="btn" type="button" id="kosongSemuaKitabFiqih">Cari di semua kitab</button>` : "";
         $("hasil").innerHTML = `<div class="kosong">🔍<br>Tidak ditemukan untuk “${esc(state.q)}”${cakupan}. Coba kata lain, atau tanyakan lewat Tanya Jawab.<br><button class="btn" type="button" id="kosongKeTanya">Tanyakan lewat Tanya Jawab</button>${tombolFilter}</div>`;
       } else {
         $("hasil").innerHTML = `<div class="kosong">${esc(m.kosong)}</div>`;
@@ -507,23 +599,24 @@ async function muat(ulang) {
       $("hasil").insertAdjacentHTML("beforeend", data.map(KARTU[state.modul]).join(""));
     }
     state.offset += data.length;
-    const cakupanAktif = state.q && ((state.modul === "ayat" && state.surah) || (state.modul === "hadits" && state.kitab));
+    const cakupanAktif = state.q && ((state.modul === "ayat" && state.surah) || (state.modul === "hadits" && state.kitab) || (state.modul === "fiqh" && state.kitabFiqih));
     if (cakupanAktif) {
       // P5-A/P6-B: filter surah/kitab aktif — tulis cakupannya di
       // baris hitungan dan tawarkan sekali ketuk untuk cari di semua.
       const diSurah = state.modul === "ayat";
-      const nama = diSurah ? namaSurah(state.surah) : state.kitab;
-      const kunciTotal = diSurah ? "ayat" : "hadits";
+      const diHadits = state.modul === "hadits";
+      const nama = diSurah ? namaSurah(state.surah) : diHadits ? state.kitab : state.kitabFiqih;
+      const kunciTotal = diSurah ? "ayat" : diHadits ? "hadits" : "fiqh";
       const labelSemua = diSurah ? "surah" : "kitab";
-      const tombolId = diSurah ? "cariSemuaSurah" : "cariSemuaKitab";
-      const qSaatItu = state.q, filterSaatItu = diSurah ? state.surah : state.kitab;
+      const tombolId = diSurah ? "cariSemuaSurah" : diHadits ? "cariSemuaKitab" : "cariSemuaKitabFiqih";
+      const qSaatItu = state.q, filterSaatItu = diSurah ? state.surah : diHadits ? state.kitab : state.kitabFiqih;
       $("hitung").innerHTML = (data.length || !ulang
         ? `Menampilkan ${state.offset} hasil untuk “${esc(state.q)}” di ${esc(nama)} <span class="hitung-total"></span>. <button type="button" class="tautan" id="${tombolId}">Cari di semua ${labelSemua}</button>`
         : "");
       // Total tanpa filter (dari /api/cari-semua) — bila gagal, baris
       // hitungan tetap benar tanpa bagian "(dari …)".
       ambil(`/api/cari-semua?q=${encodeURIComponent(state.q)}&limit=1`).then((j) => {
-        const filterKini = diSurah ? state.surah : state.kitab;
+        const filterKini = diSurah ? state.surah : diHadits ? state.kitab : state.kitabFiqih;
         if (state.q !== qSaatItu || filterKini !== filterSaatItu) return;
         const totalSemua = (j.total && j.total[kunciTotal]) || 0;
         const el = document.querySelector("#hitung .hitung-total");
@@ -565,6 +658,9 @@ function pilihModul(kunci, jagaState) {
     state.ayat = ""; $("ayatNo").value = "";
     state.kitab = ""; $("kitab").value = "";
     state.noHadits = ""; $("noHadits").value = "";
+    state.kitabFiqih = ""; $("kitabFiqih").value = "";
+    state.babFiqih = ""; $("babFiqih").value = "";
+    state.fiqihUrut = "";
   }
   $("q").value = state.q;
   $("tabs").querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x.dataset.modul === kunci)));
@@ -573,6 +669,7 @@ function pilihModul(kunci, jagaState) {
   $("formCari").style.display = tanya ? "none" : "";
   $("surahWrap").hidden = state.modul !== "ayat";
   $("kitabWrap").hidden = state.modul !== "hadits";
+  $("fiqihWrap").hidden = state.modul !== "fiqh";
   $("tanyaWrap").hidden = !tanya;
   $("hasil").style.display = tanya ? "none" : "";
   document.querySelector(".lebih").style.display = tanya ? "none" : "";
@@ -611,10 +708,10 @@ function simpanRiwayat(kunci, nilai) {
   return daftar;
 }
 function totalCariSemua(total) {
-  return ["ayat", "hadits", "siroh", "artikel"].reduce((n, k) => n + (total[k] || 0), 0);
+  return ["ayat", "hadits", "fiqh", "siroh", "artikel"].reduce((n, k) => n + (total[k] || 0), 0);
 }
 function ringkasanCariSemua(q, total) {
-  const bagian = ["ayat", "hadits", "siroh", "artikel"]
+  const bagian = ["ayat", "hadits", "fiqh", "siroh", "artikel"]
     .filter((k) => (total[k] || 0) > 0)
     .map((k) => `${MODUL[k].label} ${total[k]}`);
   return bagian.length ? `Ditemukan ${totalCariSemua(total)} hasil untuk “${q}” — ${bagian.join(" · ")}.` : "";
@@ -646,6 +743,7 @@ async function jalankanCariSemua(q) {
   $("formCari").style.display = "none";
   $("surahWrap").hidden = true;
   $("kitabWrap").hidden = true;
+  $("fiqihWrap").hidden = true;
   $("tanyaWrap").hidden = true;
   $("petaSiroh").style.display = "none";
   $("hasil").style.display = "";
@@ -666,7 +764,7 @@ async function jalankanCariSemua(q) {
       $("cariKeTanya").addEventListener("click", () => { pilihModul("tanya"); $("tanyaQ").value = q; });
       return;
     }
-    $("hasil").innerHTML = ["ayat", "hadits", "siroh", "artikel"].map((k) =>
+    $("hasil").innerHTML = ["ayat", "hadits", "fiqh", "siroh", "artikel"].map((k) =>
       kartuKelompok(k, j[k] || [], total[k] || 0)).join("");
     $("hitung").textContent = ringkasanCariSemua(q, total);
   } catch {
@@ -677,8 +775,9 @@ async function jalankanCariSemua(q) {
 }
 
 // Routing hash: tiap tab punya alamat sendiri sehingga bisa dibagikan
-// dan di-bookmark (#ayat, #hadits, #siroh, #artikel, #tanya), plus
-// tautan dalam ke ayat (#ayat/2/255), hadits (#hadits/Sahih%20al-Bukhari/1), dan
+// dan di-bookmark (#ayat, #hadits, #fiqh, #siroh, #artikel, #tanya), plus
+// tautan dalam ke ayat (#ayat/2/255), hadits (#hadits/Sahih%20al-Bukhari/1),
+// satu bagian fiqih (#fiqih/Kifayat%20al-Akhyar/3), dan
 // pertanyaan Tanya (#tanya?q=... — hanya mengisi kolom, tidak
 // mengirim otomatis, supaya tautan yang dibagikan tidak memicu
 // panggilan AI begitu dibuka).
@@ -710,6 +809,7 @@ function tulisHash() {
   let h = "#" + state.modul;
   if (state.modul === "ayat" && state.surah && state.ayat) h += "/" + state.surah + "/" + state.ayat;
   else if (state.modul === "hadits" && state.kitab && state.noHadits) h += "/" + encodeURIComponent(state.kitab) + "/" + state.noHadits;
+  else if (state.modul === "fiqh" && state.kitabFiqih && state.fiqihUrut) h += "/" + encodeURIComponent(state.kitabFiqih) + "/" + state.fiqihUrut;
   else if (state.modul === "tanya") {
     const q = $("tanyaQ").value.trim();
     if (q) h += "?q=" + encodeURIComponent(q);
@@ -742,10 +842,26 @@ function terapkanHash() {
         state.q = seg[1] + (seg[2] ? " " + seg[2] : "");
       }
       state.surah = ""; state.ayat = "";
+    } else if (modul === "fiqh" && seg[1]) {
+      // Tautan dalam ke satu bagian fiqih: kitab harus dikenal (dari
+      // /api/fiqih/kitab yang dimuat di muatAwal), seg[2] = urut
+      // bagian dalam kitab itu — cerminan #hadits/{kitab}/{no}.
+      if (daftarKitabFiqih.includes(seg[1]) && seg[2]) {
+        state.kitabFiqih = seg[1]; state.fiqihUrut = seg[2]; state.babFiqih = ""; state.q = "";
+      } else if (daftarKitabFiqih.includes(seg[1])) {
+        state.kitabFiqih = seg[1]; state.babFiqih = ""; state.fiqihUrut = ""; state.q = "";
+      } else {
+        state.q = seg[1] + (seg[2] ? " " + seg[2] : "");
+      }
+      state.surah = ""; state.ayat = ""; state.kitab = ""; state.noHadits = "";
     } else if (q) {
       state.q = q; state.surah = ""; state.ayat = "";
+      state.kitab = ""; state.noHadits = "";
+      state.kitabFiqih = ""; state.babFiqih = ""; state.fiqihUrut = "";
     } else {
       state.q = ""; state.surah = ""; state.ayat = "";
+      state.kitab = ""; state.noHadits = "";
+      state.kitabFiqih = ""; state.babFiqih = ""; state.fiqihUrut = "";
     }
     pilihModul(modul, true);
     // Sinkronkan kolom input dengan state (pilihModul tidak
@@ -755,6 +871,9 @@ function terapkanHash() {
     $("ayatNo").value = state.ayat;
     $("kitab").value = state.kitab;
     $("noHadits").value = state.noHadits;
+    $("kitabFiqih").value = state.kitabFiqih;
+    if (state.kitabFiqih) muatBabFiqih(state.kitabFiqih).then(() => { $("babFiqih").value = state.babFiqih; });
+    else $("babFiqih").value = "";
   } finally {
     menerapkanHash = false;
   }
@@ -774,8 +893,15 @@ async function muatAwal() {
     $("surah").innerHTML = `<option value="">Semua surah</option>` + surah.map((s) =>
       `<option value="${s.surah_no}">${s.surah_no}. ${esc(s.surah_nama)} (${s.jumlah})</option>`).join("");
   } catch { $("surah").innerHTML = `<option value="">Semua surah</option>`; }
+  try {
+    const kitabFiqih = await ambil("/api/fiqih/kitab");
+    daftarKitabFiqih = kitabFiqih;
+    $("kitabFiqih").innerHTML = `<option value="">Semua kitab</option>` + kitabFiqih.map((k) =>
+      `<option>${esc(k)}</option>`).join("");
+  } catch { $("kitabFiqih").innerHTML = `<option value="">Semua kitab</option>`; }
   $("surahWrap").hidden = state.modul !== "ayat";
   $("kitabWrap").hidden = state.modul !== "hadits";
+  $("fiqihWrap").hidden = state.modul !== "fiqh";
   // Buka sesuai alamat (#ayat/2/255, #tanya?q=..., atau tanpa hash
   // berarti tab Al-Qur'an seperti biasa).
   terapkanHash();
@@ -784,9 +910,11 @@ async function muatAwal() {
 let timer = null;
 $("q").addEventListener("input", (e) => {
   clearTimeout(timer);
-  // Mode cari frase menggantikan mode buka ayat/hadits tertentu.
+  // Mode cari frase menggantikan mode buka ayat/hadits/bab tertentu.
   state.ayat = ""; $("ayatNo").value = "";
   state.noHadits = ""; $("noHadits").value = "";
+  state.babFiqih = ""; $("babFiqih").value = "";
+  state.fiqihUrut = "";
   timer = setTimeout(() => { state.q = e.target.value.trim(); muat(true); }, 350);
 });
 $("formCari").addEventListener("submit", (e) => {
@@ -794,6 +922,8 @@ $("formCari").addEventListener("submit", (e) => {
   clearTimeout(timer);
   state.ayat = ""; $("ayatNo").value = "";
   state.noHadits = ""; $("noHadits").value = "";
+  state.babFiqih = ""; $("babFiqih").value = "";
+  state.fiqihUrut = "";
   state.q = $("q").value.trim();
   muat(true);
   tulisHash();
@@ -813,6 +943,48 @@ $("kitab").addEventListener("change", (e) => {
   muat(true);
   tulisHash();
 });
+// P8: pemilih kitab fiqih — cerminan pemilih kitab di tab Hadits.
+// Memilih kitab mengisi pemilih babnya, lalu menampilkan daftar
+// bagian kitab itu (seperti memilih surah/kitab saja).
+$("kitabFiqih").addEventListener("change", async (e) => {
+  state.kitabFiqih = e.target.value;
+  state.babFiqih = ""; $("babFiqih").value = "";
+  state.fiqihUrut = "";
+  await muatBabFiqih(state.kitabFiqih);
+  perbaruiPlaceholder();
+  muat(true);
+  tulisHash();
+});
+$("babFiqih").addEventListener("change", (e) => {
+  state.babFiqih = e.target.value;
+  state.fiqihUrut = "";
+  muat(true);
+  tulisHash();
+});
+function bukaFiqihTertentu() {
+  const kitab = $("kitabFiqih").value;
+  const bab = $("babFiqih").value;
+  if (!kitab) {
+    $("hasil").innerHTML = '<div class="kosong">Pilih kitab dulu, lalu pilih bab dan tekan Buka.</div>';
+    $("hitung").textContent = "";
+    $("lebih").hidden = true;
+    return;
+  }
+  if (!bab) {
+    $("hasil").innerHTML = '<div class="kosong">Pilih bab dulu, lalu tekan Buka.</div>';
+    $("hitung").textContent = "";
+    $("lebih").hidden = true;
+    return;
+  }
+  state.kitabFiqih = kitab;
+  state.babFiqih = bab;
+  state.fiqihUrut = "";
+  // Mode buka bab tertentu menggantikan mode cari.
+  state.q = ""; $("q").value = "";
+  muat(true);
+  tulisHash();
+}
+$("bukaFiqih").addEventListener("click", bukaFiqihTertentu);
 function bukaAyatTertentu() {
   const surah = $("surah").value;
   const ayat = $("ayatNo").value.trim();
@@ -874,6 +1046,9 @@ $("hitung").addEventListener("click", (e) => {
     state.surah = ""; $("surah").value = "";
   } else if (e.target.closest("#cariSemuaKitab")) {
     state.kitab = ""; $("kitab").value = "";
+  } else if (e.target.closest("#cariSemuaKitabFiqih")) {
+    state.kitabFiqih = ""; $("kitabFiqih").value = "";
+    state.babFiqih = ""; $("babFiqih").value = "";
   } else return;
   perbaruiPlaceholder();
   muat(true);
@@ -922,9 +1097,11 @@ $("hasil").addEventListener("click", async (e) => {
     // sementara pencariannya sudah mencakup semua.
     state.q = cariSemuaQ;
     state.surah = ""; state.ayat = ""; state.kitab = ""; state.noHadits = "";
+    state.kitabFiqih = ""; state.babFiqih = ""; state.fiqihUrut = "";
     pilihModul(lihat.dataset.modul, true);
     $("q").value = state.q;
     $("surah").value = ""; $("ayatNo").value = ""; $("kitab").value = ""; $("noHadits").value = "";
+    $("kitabFiqih").value = ""; $("babFiqih").value = "";
     tulisHash();
     return;
   }
@@ -946,6 +1123,15 @@ $("hasil").addEventListener("click", async (e) => {
   const semuaKitab = e.target.closest("#kosongSemuaKitab");
   if (semuaKitab) {
     state.kitab = ""; $("kitab").value = "";
+    perbaruiPlaceholder();
+    muat(true);
+    tulisHash();
+    return;
+  }
+  const semuaKitabFiqih = e.target.closest("#kosongSemuaKitabFiqih");
+  if (semuaKitabFiqih) {
+    state.kitabFiqih = ""; $("kitabFiqih").value = "";
+    state.babFiqih = ""; $("babFiqih").value = "";
     perbaruiPlaceholder();
     muat(true);
     tulisHash();

@@ -465,6 +465,43 @@ Di VPS, jalankan `bun run import:kata` sekali setelah deploy
 "Tafsir & per kata" (commit kecil terpisah, setelah impor
 terverifikasi live).
 
+## Fiqih: Kifayat al-Akhyar dari Fiqh Corpus (2026-11-12)
+
+Modul kelima, strukturnya dibuat seperti Al-Qur'an dan Hadits:
+tab Fiqih punya pemilih kitab + pemilih bab + tombol Buka,
+kolom cari, dan tautan dalam `#fiqih/{kitab}/{urut}`.
+Sumbernya Fiqh Corpus (arabic-digital-humanities/fiqh, publik
+di GitHub) — 55 kitab Arab format OpenITI, 11 per mazhab.
+Pilot ini hanya *Kifayat al-Akhyar* (syarah Matn Abi Shuja,
+Imam Taqiyyuddin al-Hisni, w. 829 H, mazhab Syafi'i).
+
+```bash
+bun run import:fiqih                 # unduh dari GitHub, impor
+bun run import:fiqih -- --reset      # hapus Kifayat lama, impor ulang
+bun run import:fiqih -- --file=/tmp/kifayat.txt   # dari berkas lokal
+SIJI_DB=/tmp/uji.db bun run import:fiqih
+```
+
+Yang diimpor: 157 bagian (18 kitab, 131 bab, 8 pasal) — satu
+baris DB = satu bagian (pendahuluan kitab / bab / pasal) dengan
+teks Arab lengkapnya. Penanda OpenITI diurai: `### |  |1`
+kitab, `### || |2` bab, `|2` lepas pasal; token markup dibuang
+(`PageV…`, `Milestone…`, `@QB@`/`@QE@` — teks kutipannya tetap
+disimpan). Diimpor verbatim, seperti modul lain. Validasi
+sebelum satu baris pun ditulis: penanda akhir META harus ada,
+header pertama harus kitab, tiap bagian harus punya teks,
+total >= 100 bagian dan >= 10 kitab.
+
+**Fiqh Corpus TIDAK punya versi Indonesia — Arab saja.**
+Terjemah Indonesia Kifayatul Akhyar ada di luar korpus
+(lilmuslimin.com, Kitabpedia, cetakan Bina Ilmu 1997,
+Pustaka Azzam 2016) — tersebar dan yang modern berhak cipta,
+jadi tidak dimasukkan ke DB. Tab Fiqih menampilkan teks Arab;
+tautan baca terjemah ke situs luar belum ditambahkan.
+Tanya Jawab belum memakai modul fiqih sebagai sumber.
+Di VPS, setelah deploy jalankan `bun run import:fiqih` sekali
+(tanpa restart — server membaca DB per permintaan).
+
 ## Siroh: timeline lengkap 26 peristiwa (fase 6, dilengkapi 2026-11-10)
 
 Tidak ada API siroh terstruktur yang terverifikasi seperti

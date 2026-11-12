@@ -749,6 +749,62 @@ Interaksi 7,4; Aksesibilitas 7,0; Visual 7,7). Dua catatan:
 - **Deploy di VPS:** `./scripts/deploy.sh` saja (tanpa impor/
   seed — P7 murni kode, data hadits sudah live sejak P2).
 
+## 6n. Lanjutan 2026-11-12 — modul Fiqih (P8, Kifayat al-Akhyar)
+
+Atas pilihan Pak Gun ("pakai yg paling siap, Fiqh corpus", lalu
+"lanjutannya, saya ikut rekom kamu ya" + "struktur bangunannya
+dibuat kayak Al-Qur'an dan Hadits ya"):
+
+- **Sumber:** Fiqh Corpus (`arabic-digital-humanities/fiqh`) —
+  55 kitab Arab OpenITI, 11 per mazhab. Pilot hanya Kifayat
+  al-Akhyar (Syafi'i). **Tidak ada versi Indonesia di korpus
+  itu** — Arab saja; terjemah Indonesia ada di luar korpus
+  (lilmuslimin.com, Kitabpedia, Bina Ilmu 1997, Pustaka Azzam
+  2016), tersebar dan yang modern berhak cipta, jadi tidak
+  masuk DB.
+- **Impor** (`scripts/import-fiqih.ts`, `bun run import:fiqih`,
+  `--file=`, `--reset`, pola import-kata: fungsi murni
+  `bangunBarisFiqih` + penjaga `import.meta.main`): fetch raw
+  GitHub (terverifikasi 200, 1.848.668 byte, identik dengan
+  clone), parse `### |  |1` kitab (18), `### || |2` bab (131),
+  `|2` lepas pasal (8); buang token markup PageV/Milestone/
+  @QB@/@QE@; baris teks digabung dengan spasi; validasi ketat
+  (>= 100 bagian, >= 10 kitab, header pertama kitab, tiap
+  bagian berteks). Hasil: **157 bagian** (18 kitab, 131 bab,
+  8 pasal), idempotent per kitab (UNIQUE kitab+urut).
+- **Skema** (`src/db.ts`): tabel `fiqh` (kitab, mazhab, bab,
+  pasal, teks, urut, sumber) + `fiqh_fts` + trigger ai/ad/au;
+  `listFiqih/hitungFiqih/cariFiqih/getFiqih/daftarKitabFiqih/
+  daftarBabFiqih/listFiqihBab/getFiqihByUrut`. Fiqih ikut
+  `/api/cari-semua` + `hitungCariSemua` (total per modul).
+- **API** (`src/index.ts`): `/api/fiqih` (daftar/cari/?id=),
+  `?kitab=&urut=` satu bagian (tautan dalam, cerminan
+  getHadits), `?kitab=&bab=` seluruh bagian satu bab,
+  `/api/fiqih/kitab`, `/api/fiqih/bab?kitab=` (cerminan
+  /api/surah); `/api/modul` kini memuat `fiqh`.
+- **Frontend** (`public/index.html`): tab "Fiqih" (setelah
+  Hadits) seperti tab Al-Qur'an/Hadits — pemilih kitab +
+  pemilih bab + Buka, tidak menampilkan apa pun sebelum cari/
+  buka (guard P7), memilih kitab saja menampilkan daftar
+  kitab itu, placeholder + baris hitungan + pesan kosong
+  mengikuti pola P5-A/P6-B, hash `#fiqih/{kitab}/{urut}`,
+  kartu Arab RTL + Salin, ikut "Cari di semua modul".
+  Tentang: baris sumber fiqih (157 bagian, Arab saja).
+- **Belum:** Tanya Jawab belum memakai fiqih sebagai sumber;
+  tautan baca terjemah ke situs luar belum ditambahkan.
+- **Uji:** 6/6 `tests/import-fiqih.test.ts` (parser + DB);
+  per berkas: tanya 36/36, cari-semua 4/4, kata 7/7, tafsir
+  5/5; `bun check` tetap 12 galat lama (db 1 + index 11);
+  gabungan `bun test` tetap gagal 2 (sudah begitu sebelum
+  perubahan, terverifikasi via stash — seed tanya/cari-semua
+  di registry bersama). E2E server lokal + salinan DB asli:
+  impor nyata 157 baris; `/api/modul` fiqh 157;
+  `/api/fiqih/bab` urut naik; buka bab 1 bagian; `?urut=1`
+  tepat, 999 → 404; cari "الطهارة" 5 hasil; cari-semua
+  fiqh 19; halaman memuat tab Fiqih.
+- **Deploy di VPS:** `./scripts/deploy.sh`, lalu
+  `bun run import:fiqih` sekali (tanpa restart).
+
 ## 7. Perintah deploy (setelah build — jalankan di VPS)
 
 ```bash

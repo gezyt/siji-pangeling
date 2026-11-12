@@ -63,18 +63,19 @@ afterAll(() => {
 });
 
 test("hitungCariSemua menghitung per modul", () => {
-  expect(dbMod.hitungCariSemua("kunyit")).toEqual({ ayat: 1, hadits: 2, siroh: 1, artikel: 1 });
+  expect(dbMod.hitungCariSemua("kunyit")).toEqual({ ayat: 1, hadits: 2, siroh: 1, artikel: 1, fiqh: 0 });
   expect(dbMod.hitungCariSemua("kata-yang-tidak-ada-di-mana-mana")).toEqual({
     ayat: 0,
     hadits: 0,
     siroh: 0,
     artikel: 0,
+    fiqh: 0,
   });
 });
 
 test("cariSemua mengembalikan daftar + total yang cocok", () => {
   const r: any = dbMod.cariSemua("kunyit", 20);
-  expect(r.total).toEqual({ ayat: 1, hadits: 2, siroh: 1, artikel: 1 });
+  expect(r.total).toEqual({ ayat: 1, hadits: 2, siroh: 1, artikel: 1, fiqh: 0 });
   expect(r.ayat.length).toBe(1);
   expect(r.ayat[0].verse_key).toBe("3:200");
   expect(r.hadits.length).toBe(2);
@@ -90,7 +91,7 @@ test("cariSemua dengan limit memotong daftar tapi total tetap penuh", () => {
 
 test("cariSemua tanpa hasil: daftar kosong dan total nol", () => {
   const r: any = dbMod.cariSemua("kata-yang-tidak-ada-di-mana-mana", 20);
-  expect(r.total).toEqual({ ayat: 0, hadits: 0, siroh: 0, artikel: 0 });
+  expect(r.total).toEqual({ ayat: 0, hadits: 0, siroh: 0, artikel: 0, fiqh: 0 });
   expect(r.ayat).toEqual([]);
   expect(r.hadits).toEqual([]);
   expect(r.siroh).toEqual([]);

@@ -196,6 +196,37 @@ CREATE TRIGGER IF NOT EXISTS artikel_au AFTER UPDATE ON artikel BEGIN
   INSERT INTO artikel_fts(artikel_fts, rowid, judul, isi, dalil) VALUES ('delete', old.id, old.judul, old.isi, old.dalil);
   INSERT INTO artikel_fts(rowid, judul, isi, dalil) VALUES (new.id, new.judul, new.isi, new.dalil);
 END;
+
+-- Modul 5: Fiqih (pilot: Kifayat al-Akhyar, Syafi'i, dari Fiqh Corpus).
+-- Satu baris = satu bagian (pendahuluan kitab / bab / pasal) dengan teks
+-- Arab lengkap bagian itu. urut = urutan bagian dalam kitab; UNIQUE
+-- (kitab, urut) menjaga idempotensi impor ulang.
+CREATE TABLE IF NOT EXISTS fiqh (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kitab TEXT NOT NULL,
+  mazhab TEXT,
+  bab TEXT NOT NULL,
+  pasal TEXT,
+  teks TEXT NOT NULL,
+  urut INTEGER NOT NULL,
+  sumber TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(kitab, urut)
+);
+CREATE INDEX IF NOT EXISTS fiqh_kitab_idx ON fiqh(kitab);
+CREATE VIRTUAL TABLE IF NOT EXISTS fiqh_fts USING fts5(
+  kitab, bab, pasal, teks, content='fiqh', content_rowid='id'
+);
+CREATE TRIGGER IF NOT EXISTS fiqh_ai AFTER INSERT ON fiqh BEGIN
+  INSERT INTO fiqh_fts(rowid, kitab, bab, pasal, teks) VALUES (new.id, new.kitab, new.bab, new.pasal, new.teks);
+END;
+CREATE TRIGGER IF NOT EXISTS fiqh_ad AFTER DELETE ON fiqh BEGIN
+  INSERT INTO fiqh_fts(fiqh_fts, rowid, kitab, bab, pasal, teks) VALUES ('delete', old.id, old.kitab, old.bab, old.pasal, old.teks);
+END;
+CREATE TRIGGER IF NOT EXISTS fiqh_au AFTER UPDATE ON fiqh BEGIN
+  INSERT INTO fiqh_fts(fiqh_fts, rowid, kitab, bab, pasal, teks) VALUES ('delete', old.id, old.kitab, old.bab, old.pasal, old.teks);
+  INSERT INTO fiqh_fts(rowid, kitab, bab, pasal, teks) VALUES (new.id, new.kitab, new.bab, new.pasal, new.teks);
+END;
 `);
 
 function batas(limit: unknown, def = 20): number {
@@ -490,6 +521,7 @@ export function hitungCariSemua(q: string) {
     hadits: hitungCariModul("hadits", "hadits_fts", ["matan_arab", "matan_id", "kitab", "perawi"], q),
     siroh: hitungCariModul("siroh", "siroh_fts", ["judul", "peristiwa", "hikmah", "tempat"], q),
     artikel: hitungCariModul("artikel", "artikel_fts", ["judul", "isi", "dalil"], q),
+    fiqh: hitungCariModul("fiqh", "fiqh_fts", ["kitab", "bab", "pasal", "teks"], q),
   };
 }
 
@@ -604,12 +636,66 @@ export function cariArtikel(q: string, limit = 20, offset = 0, kategori?: string
     : cariModul("artikel", "artikel_fts", ["judul", "isi", "dalil"], q, limit, offset);
 }
 
+export function hitungFiqih(kitab?: string): number {
+  return kitab
+    ? hitung("SELECT COUNT(*) AS n FROM fiqh WHERE kitab = ?", [kitab])
+    : hitung("SELECT COUNT(*) AS n FROM fiqh");
+}
+
+export function daftarKitabFiqih(): string[] {
+  return (db.query("SELECT kitab FROM fiqh GROUP BY kitab ORDER BY MIN(urut)").all() as { kitab: string }[]).map(
+    (r) => r.kitab,
+  );
+}
+
+// Daftar bab satu kitab (judul + urut bagian pertamanya) — cerminan
+// daftarSurah: pemilih bab di tab Fiqih diisi dari endpoint ini.
+export function daftarBabFiqih(kitab: string): { bab: string; urut: number }[] {
+  return db
+    .query("SELECT bab, MIN(urut) AS urut FROM fiqh WHERE kitab = ? GROUP BY bab ORDER BY MIN(urut)")
+    .all(kitab) as { bab: string; urut: number }[];
+}
+
+// Seluruh bagian dalam satu bab, urut naik — yang ditampilkan saat
+// pengguna memilih kitab + bab lalu menekan Buka.
+export function listFiqihBab(kitab: string, bab: string) {
+  return db
+    .query("SELECT * FROM fiqh WHERE kitab = ? AND bab = ? ORDER BY urut ASC")
+    .all(kitab, bab);
+}
+
+// Satu bagian berdasarkan urutnya dalam kitab — urut stabil antar
+// impor ulang (UNIQUE kitab+urut), jadi dipakai tautan dalam
+// #fiqih/{kitab}/{urut}, cerminan getHadits(kitab, no).
+export function getFiqihByUrut(kitab: string, urut: number) {
+  return db.query("SELECT * FROM fiqh WHERE kitab = ? AND urut = ?").get(kitab, urut) as any;
+}
+
+export function listFiqih(limit = 20, offset = 0, kitab?: string) {
+  const lim = batas(limit);
+  const off = awal(offset);
+  return kitab
+    ? db.query("SELECT * FROM fiqh WHERE kitab = ? ORDER BY urut ASC LIMIT ? OFFSET ?").all(kitab, lim, off)
+    : db.query("SELECT * FROM fiqh ORDER BY kitab ASC, urut ASC LIMIT ? OFFSET ?").all(lim, off);
+}
+
+export function getFiqih(id: number) {
+  return db.query("SELECT * FROM fiqh WHERE id = ?").get(id) as any;
+}
+
+export function cariFiqih(q: string, limit = 20, offset = 0, kitab?: string) {
+  return kitab
+    ? cariModul("fiqh", "fiqh_fts", ["kitab", "bab", "pasal", "teks"], q, limit, offset, "AND m.kitab = ?", [kitab])
+    : cariModul("fiqh", "fiqh_fts", ["kitab", "bab", "pasal", "teks"], q, limit, offset);
+}
+
 export function cariSemua(q: string, limit = 20) {
   return {
     ayat: cariAyat(q, limit, 0),
     hadits: cariHadits(q, limit, 0),
     siroh: cariSiroh(q, limit, 0),
     artikel: cariArtikel(q, limit, 0),
+    fiqh: cariFiqih(q, limit, 0),
     total: hitungCariSemua(q),
   };
 }

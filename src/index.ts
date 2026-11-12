@@ -4,6 +4,7 @@ import {
   listHadits, hitungHadits, getHadits, cariHadits,
   listSiroh, hitungSiroh, cariSiroh,
   listArtikel, hitungArtikel, cariArtikel, cariSemua,
+  listFiqih, hitungFiqih, getFiqih, cariFiqih, daftarKitabFiqih, daftarBabFiqih, listFiqihBab, getFiqihByUrut,
 } from "./db";
 import { jawabPertanyaan, bolehTanya, ipKlien, MAKS_PANJANG_PERTANYAAN } from "./tanya";
 import { join, dirname, normalize, sep } from "node:path";
@@ -222,6 +223,39 @@ Bun.serve({
       return halaman(url, listArtikel(limit, offset, kategori), hitungArtikel(kategori));
     }
 
+    if (url.pathname === "/api/fiqih" && req.method === "GET") {
+      const { limit, offset } = ambilLimitOffset(url);
+      const kitab = url.searchParams.get("kitab") || undefined;
+      const bab = url.searchParams.get("bab") || undefined;
+      const id = Number(url.searchParams.get("id"));
+      if (Number.isFinite(id) && id > 0) {
+        const satu = getFiqih(Math.floor(id));
+        return satu ? json(satu) : json({ error: "bagian fiqih tidak ditemukan" }, 404);
+      }
+      // Buka satu bagian lewat urutnya dalam kitab (tautan dalam
+      // #fiqih/{kitab}/{urut}) — cerminan /api/hadits?kitab=&no=.
+      const urut = Number(url.searchParams.get("urut"));
+      if (kitab && Number.isFinite(urut) && urut > 0) {
+        const satu = getFiqihByUrut(kitab, Math.floor(urut));
+        return satu ? json(satu) : json({ error: "bagian fiqih tidak ditemukan" }, 404);
+      }
+      // Buka satu bab: seluruh bagiannya, urut naik.
+      if (kitab && bab) return json(listFiqihBab(kitab, bab));
+      const q = url.searchParams.get("q");
+      if (q) return json(cariFiqih(q, Number(limit), Number(offset), kitab));
+      return halaman(url, listFiqih(Number(limit), Number(offset), kitab), hitungFiqih(kitab));
+    }
+
+    if (url.pathname === "/api/fiqih/kitab" && req.method === "GET") {
+      return json(daftarKitabFiqih());
+    }
+
+    if (url.pathname === "/api/fiqih/bab" && req.method === "GET") {
+      const kitab = url.searchParams.get("kitab") || "";
+      if (!kitab) return json({ error: "parameter ?kitab= wajib" }, 400);
+      return json(daftarBabFiqih(kitab));
+    }
+
     if (url.pathname === "/api/cari-semua" && req.method === "GET") {
       const q = url.searchParams.get("q");
       if (!q) return json({ error: "parameter ?q= wajib" }, 400);
@@ -234,6 +268,7 @@ Bun.serve({
         hadits: hitungHadits(),
         siroh: hitungSiroh(),
         artikel: hitungArtikel(),
+        fiqh: hitungFiqih(),
         konten: hitungKonten(),
       });
     }
