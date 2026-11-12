@@ -879,6 +879,29 @@ dibuat kayak Al-Qur'an dan Hadits ya"):
   (`bun run hapus-cache-tanya -- --semua`) — jawaban penolakan
   sudah tersimpan di cache 7 hari — lalu uji ulang live
   "perintah Allah" + "apa hukum wudhu?".
+- **P9a ter-deploy 13.38 WIB (813ec11):** verifikasi live
+  13.38–13.40 WIB: "perintah Allah" DIJAWAB (8 poin, 12 sumber),
+  tetapi "apa hukum wudhu?" MASIH DITOLAK dua kali. Tersangka
+  berikutnya: kalimat prompt ASLI "Jangan mengeluarkan fatwa atau
+  putusan hukum; ..." — pertanyaan "apa hukum X?" memang bentuk
+  pertanyaan fatwa. **P9b (disetujui Pak Gun 12 Nov sore, BELUM
+  push):** kalimat itu diganti menjadi "Untuk soal hukum,
+  jawablah hanya dari sumber fiqih yang diberikan dan sebutkan
+  kitab dan mazhabnya; jangan mengeluarkan putusan hukum sendiri
+  di luar sumber, dan bila sumber tidak cukup, arahkan untuk
+  bertanya ke ustadz atau ahli." Kata "fatwa" kini tidak muncul
+  lagi di prompt; uji regresi diperbarui (tanya 42/42). Deploy
+  P9b wajib disertai hapus cache lagi (jawaban penolakan
+  "apa hukum wudhu?" tersimpan sejak 13.38) + uji ulang live
+  pertanyaan itu + klik kartu sumber fiqihnya.
+- **Tentang diperbaiki (P9b, BELUM push):** kartu baru "Cara
+  memakai Siji Pangeling" (Cari semua + cara pakai tiap tab +
+  tombol lanjutan Tanya Jawab) dan kartu baru "Menu Fiqih" (isi
+  Kifayat al-Akhyar 157 bagian; buka bab via Kitab → Bab → Buka;
+  cari dengan kata Arab; klik kartu sumber fiqih di jawaban
+  Tanya Jawab; satu pendapat mazhab Syafi'i, bukan fatwa;
+  terjemah Indonesia belum tersedia). Intro kini menyebut fiqih;
+  kartu Tanya Jawab disesuaikan dengan aturan baru soal hukum.
 - **Deploy di VPS:** `./scripts/deploy.sh` (me-restart; prompt
   sistem dibaca saat start), lalu
   `bun run hapus-cache-tanya -- --semua` sekali.

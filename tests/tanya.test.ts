@@ -385,19 +385,24 @@ test("prompt sistem dimuat dari prompts/sistem-tanya.md", () => {
   expect(tanya.muatPromptSistem()).toBe(tanya.PROMPT_SISTEM);
 });
 
-test("prompt sistem: atribusi fiqih ada, tanpa peringatan 'bukan fatwa' kedua", () => {
-  // Regresi 2026-11-12: kalimat P9 "dan ingatkan bahwa itu satu
-  // pendapat mazhab, bukan fatwa" membuat model menolak menjawab soal
-  // hukum (wudhu, perintah Allah) padahal sumbernya ada — penolakan
-  // itu tersimpan di cache sebagai jawaban satu kalimat, sementara
-  // pertanyaan bukan-hukum ("wahyu pertama") tetap dijawab. Kata
-  // "fatwa" kini hanya muncul sekali (di larangan yang sudah ada
-  // sejak awal); penegasan "bukan fatwa" tetap ada di UI (catatan
-  // tab Tanya + Tentang), bukan di prompt.
+test("prompt sistem: soal hukum dijawab dari sumber fiqih, bukan ditolak", () => {
+  // Regresi 2026-11-12 (P9a lalu P9b): kalimat P9 "dan ingatkan
+  // bahwa itu satu pendapat mazhab, bukan fatwa" membuat model
+  // menolak soal hukum padahal sumbernya ada; pangkasan P9a
+  // mengembalikan jawaban "perintah Allah", tetapi "apa hukum
+  // wudhu?" masih ditolak karena kalimat asli "Jangan mengeluarkan
+  // fatwa atau putusan hukum; ..." — justru soal yang modul fiqih
+  // dibangun untuk dijawab. Aturan baru (disetujui Pak Gun 12 Nov
+  // sore): soal hukum dijawab HANYA dari sumber fiqih + sebut
+  // kitab/mazhab; putusan di luar sumber tetap dilarang; bila
+  // sumber tak cukup, arahkan ke ustadz. Kata "fatwa" tidak lagi
+  // muncul di prompt; peringatan "bukan fatwa" tetap ada di UI.
   expect(tanya.PROMPT_SISTEM).toContain("Kifayat al-Akhyar");
   expect(tanya.PROMPT_SISTEM).toContain("mazhab Syafi'i");
+  expect(tanya.PROMPT_SISTEM).toContain("jawablah hanya dari sumber fiqih");
+  expect(tanya.PROMPT_SISTEM).toContain("jangan mengeluarkan putusan hukum sendiri di luar sumber");
   expect(tanya.PROMPT_SISTEM).not.toContain("bukan fatwa");
-  expect((tanya.PROMPT_SISTEM.match(/fatwa/g) ?? []).length).toBe(1);
+  expect(tanya.PROMPT_SISTEM).not.toContain("fatwa");
 });
 
 test("cariJawabanBaku: cocok dan yang spesifik menang", () => {
