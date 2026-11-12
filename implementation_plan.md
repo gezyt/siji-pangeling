@@ -861,6 +861,24 @@ dibuat kayak Al-Qur'an dan Hadits ya"):
   tepat muncul di ronde 2 lewat "apa lagi?". Bukan bug; bila
   Pak Gun ingin peringkat judul-bab didahulukan, itu pekerjaan
   terpisah yang memengaruhi semua modul.
+- **Regresi prompt 12 Nov 2026 (perbaikan, BELUM push):** setelah
+  deploy P9, Tanya Jawab live menolak menjawab soal hukum ("apa
+  hukum wudhu?", "perintah Allah", ...) padahal sumbernya ada —
+  terbukti dari cache: jawaban tersimpan SATU kalimat (penolakan AI
+  persis seperti instruksi prompt), sementara "zxqwvkj" tersimpan
+  DUA kalimat (pesan server karena retrieval kosong — benar).
+  Pertanyaan bukan-hukum ("wahyu pertama") tetap dijawab lengkap
+  live 12.52 WIB. Tersangka: kalimat P9 "dan ingatkan bahwa itu
+  satu pendapat mazhab, bukan fatwa" — penyebutan "fatwa" kedua
+  membuat model menolak soal hukum. Perbaikan: kalimat itu
+  dipangkas menjadi "Bila sumbernya fiqih, sebutkan kitab dan
+  mazhabnya (mis. menurut Kifayat al-Akhyar, mazhab Syafi'i)."
+  (peringatan "bukan fatwa" tetap ada di UI, bukan di prompt);
+  uji regresi baru memastikan "fatwa" hanya muncul sekali di
+  prompt. Deploy perbaikan WAJIB disertai hapus cache
+  (`bun run hapus-cache-tanya -- --semua`) — jawaban penolakan
+  sudah tersimpan di cache 7 hari — lalu uji ulang live
+  "perintah Allah" + "apa hukum wudhu?".
 - **Deploy di VPS:** `./scripts/deploy.sh` (me-restart; prompt
   sistem dibaca saat start), lalu
   `bun run hapus-cache-tanya -- --semua` sekali.

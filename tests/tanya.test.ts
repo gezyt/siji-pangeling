@@ -385,6 +385,21 @@ test("prompt sistem dimuat dari prompts/sistem-tanya.md", () => {
   expect(tanya.muatPromptSistem()).toBe(tanya.PROMPT_SISTEM);
 });
 
+test("prompt sistem: atribusi fiqih ada, tanpa peringatan 'bukan fatwa' kedua", () => {
+  // Regresi 2026-11-12: kalimat P9 "dan ingatkan bahwa itu satu
+  // pendapat mazhab, bukan fatwa" membuat model menolak menjawab soal
+  // hukum (wudhu, perintah Allah) padahal sumbernya ada — penolakan
+  // itu tersimpan di cache sebagai jawaban satu kalimat, sementara
+  // pertanyaan bukan-hukum ("wahyu pertama") tetap dijawab. Kata
+  // "fatwa" kini hanya muncul sekali (di larangan yang sudah ada
+  // sejak awal); penegasan "bukan fatwa" tetap ada di UI (catatan
+  // tab Tanya + Tentang), bukan di prompt.
+  expect(tanya.PROMPT_SISTEM).toContain("Kifayat al-Akhyar");
+  expect(tanya.PROMPT_SISTEM).toContain("mazhab Syafi'i");
+  expect(tanya.PROMPT_SISTEM).not.toContain("bukan fatwa");
+  expect((tanya.PROMPT_SISTEM.match(/fatwa/g) ?? []).length).toBe(1);
+});
+
 test("cariJawabanBaku: cocok dan yang spesifik menang", () => {
   dbMod.upsertJawabanBaku("Apa itu ikhlas?", "ikhlas", "Jawaban baku ikhlas.", JSON.stringify([{ modul: "artikel", rujukan: "Ikhlas", teks: "tulus" }]));
   dbMod.upsertJawabanBaku("Apa itu sabar?", "sabar", "Jawaban baku sabar umum.", "[]");
