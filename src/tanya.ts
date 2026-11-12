@@ -217,6 +217,13 @@ const PETA_KONSEP: Record<string, string[]> = {
   // "sogokan" ("memberi uang sogokan"), bukan "suap". Hanya 1
   // hadits di koleksi yang memakai kata itu.
   suap: ["sogokan"],
+  // "wudhu" tidak ada di terjemah Kemenag: ayat wudhu (QS 5:6)
+  // memakai "basuhlah" ("maka basuhlah wajahmu dan tanganmu...").
+  // "basuh" hanya muncul di satu ayat (5:6, terverifikasi di DB
+  // produksi 2026-11-12), jadi pemetaan ini tepat sasaran tanpa
+  // noise — tanpa ini pertanyaan wudhu hanya menemukan ayat-ayat
+  // "hukum" umum (5:50, 12:75, ...) dan AI menolak menjawab.
+  wudhu: ["basuh"],
 };
 
 // Peta konsep Arab — jembatan Indonesia → Arab untuk modul fiqih
@@ -336,7 +343,15 @@ const BATAS_UJI_KELANGKAAN = 100;
 function cariGabung<T extends { id: number }>(
   fn: (q: string, limit: number, offset: number) => T[],
   kunci: string[],
-  limit: number
+  limit: number,
+  // Bonus judul (opsional, dipakai modul fiqih): bila bab/pasal
+  // memuat kata kunci, bagian itu lebih relevan daripada bagian
+  // yang hanya menyebut kata itu di teks — memecah seri skor yang
+  // sebelumnya dimenangkan urutan sisipan (tayamum/masah di atas
+  // فرائض الوضوء untuk "apa hukum wudhu?", 2026-11-12). Bonus
+  // hanya memengaruhi skor (pemecah seri sesama jumlah cocok),
+  // bukan jumlah cocok, dan tidak dipakai modul lain.
+  judul?: (item: T) => string
 ): T[] {
   const skor = new Map<number, { item: T; skor: number; n: number }>();
   for (const k of kunci) {
@@ -347,6 +362,7 @@ function cariGabung<T extends { id: number }>(
       const s = skor.get(item.id) ?? { item, skor: 0, n: 0 };
       s.skor += bobot;
       s.n++;
+      if (judul && judul(item).toLowerCase().includes(k.toLowerCase())) s.skor += 1;
       skor.set(item.id, s);
     }
   }
@@ -402,9 +418,10 @@ export function cariSumber(pertanyaan: string, opsi: OpsiLanjutan = {}): Sumber[
   const ambil = <T extends { id: number }>(
     fn: (q: string, limit: number, offset: number) => T[],
     limit: number,
-    buat: (x: any) => Sumber
+    buat: (x: any) => Sumber,
+    judul?: (item: T) => string
   ): Sumber[] =>
-    cariGabung(fn, kunci, pool || limit)
+    cariGabung(fn, kunci, pool || limit, judul)
       .map(buat)
       .filter((s) => !kecuali.has(normalisasiRujukan(s.rujukan)))
       .slice(0, limit);
@@ -428,13 +445,20 @@ export function cariSumber(pertanyaan: string, opsi: OpsiLanjutan = {}): Sumber[
     }))
   );
   sumber.push(
-    ...ambil(cariFiqih, 2, (f: any) => ({
-      modul: "fiqh" as const,
-      rujukan: `Kifayat al-Akhyar — ${f.bab}${f.pasal ? " · " + f.pasal : ""}`,
-      teks: potong(f.teks),
-      kitab: f.kitab,
-      urut: f.urut,
-    }))
+    ...ambil(
+      cariFiqih,
+      2,
+      (f: any) => ({
+        modul: "fiqh" as const,
+        rujukan: `Kifayat al-Akhyar — ${f.bab}${f.pasal ? " · " + f.pasal : ""}`,
+        teks: potong(f.teks),
+        kitab: f.kitab,
+        urut: f.urut,
+      }),
+      // Bonus judul: bab/pasal yang memuat kata kunci (mis. pasal
+      // "فرائض الوضوء" untuk kata وضوء) naik ke atas.
+      (f: any) => `${f.bab ?? ""} ${f.pasal ?? ""}`
+    )
   );
   sumber.push(
     ...ambil(cariSiroh, 2, (s: any) => ({

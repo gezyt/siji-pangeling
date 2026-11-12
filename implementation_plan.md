@@ -879,21 +879,28 @@ dibuat kayak Al-Qur'an dan Hadits ya"):
   (`bun run hapus-cache-tanya -- --semua`) — jawaban penolakan
   sudah tersimpan di cache 7 hari — lalu uji ulang live
   "perintah Allah" + "apa hukum wudhu?".
-- **P9a ter-deploy 13.38 WIB (813ec11):** verifikasi live
-  13.38–13.40 WIB: "perintah Allah" DIJAWAB (8 poin, 12 sumber),
-  tetapi "apa hukum wudhu?" MASIH DITOLAK dua kali. Tersangka
-  berikutnya: kalimat prompt ASLI "Jangan mengeluarkan fatwa atau
-  putusan hukum; ..." — pertanyaan "apa hukum X?" memang bentuk
-  pertanyaan fatwa. **P9b (disetujui Pak Gun 12 Nov sore, BELUM
-  push):** kalimat itu diganti menjadi "Untuk soal hukum,
-  jawablah hanya dari sumber fiqih yang diberikan dan sebutkan
-  kitab dan mazhabnya; jangan mengeluarkan putusan hukum sendiri
-  di luar sumber, dan bila sumber tidak cukup, arahkan untuk
-  bertanya ke ustadz atau ahli." Kata "fatwa" kini tidak muncul
-  lagi di prompt; uji regresi diperbarui (tanya 42/42). Deploy
-  P9b wajib disertai hapus cache lagi (jawaban penolakan
-  "apa hukum wudhu?" tersimpan sejak 13.38) + uji ulang live
-  pertanyaan itu + klik kartu sumber fiqihnya.
+- **P9b ter-deploy 18.46 WIB (8436fd9):** Tentang TER-VERIFIKASI
+  live (kartu "Cara memakai" + "Menu Fiqih" tampil), tetapi "apa
+  hukum wudhu?" MASIH DITOLAK live 18.47 WIB — jadi prompt BUKAN
+  penyebabnya. **Akar masalah sebenarnya (diag lokal 18.47 WIB,
+  data asli): retrieval-nya yang tidak relevan** — 5 ayat yang
+  diambil semuanya soal "hukum" umum (5:50, 12:75, 8:14, 48:23,
+  2:229), tanpa QS 5:6 (ayat wudhu: terjemahannya memakai
+  "basuhlah", bukan "wudhu"/"berwudu"), dan 2 fiqih yang diambil
+  hanya tayamum + masah khuffain (bagian yang berdekatan, bukan
+  yang menjawab). Model benar menolak: tidak ada sumber yang
+  langsung menjawab "apa hukum wudhu?". **P9c (DIBANGUN 18.47
+  WIB, BELUM push):** (1) pemetaan konsep `wudhu: ["basuh"]` —
+  "basuh" hanya ada di satu ayat (5:6, terverifikasi), jadi
+  tepat sasaran tanpa noise; (2) bonus judul di `cariGabung`
+  (hanya modul fiqih): bab/pasal yang memuat kata kunci naik
+  peringkat — memecah seri skor yang sebelumnya dimenangkan
+  urutan sisipan. Teruji: tanya 44/44 (2 uji baru), berkas lain
+  4/4 + 18/18, `bun check` tetap 12 galat lama; E2E lokal data
+  asli: "apa hukum wudhu?" kini mengambil QS 5:6 di urutan
+  pertama + fiqih فرائض الوضوء di urutan pertama. Deploy P9c
+  wajib disertai hapus cache lagi + uji ulang live pertanyaan
+  itu + klik kartu sumber fiqihnya.
 - **Tentang diperbaiki (P9b, BELUM push):** kartu baru "Cara
   memakai Siji Pangeling" (Cari semua + cara pakai tiap tab +
   tombol lanjutan Tanya Jawab) dan kartu baru "Menu Fiqih" (isi

@@ -92,6 +92,10 @@ beforeAll(() => {
     [14, 5, "Al-Ma'idah", 38, "5:38", "", "Adapun orang laki-laki maupun perempuan yang mencuri, potonglah tangan keduanya (sebagai) balasan atas perbuatan yang mereka lakukan dan sebagai siksaan dari Allah."],
     [15, 3, "Ali 'Imran", 161, "3:161", "", "Dan tidak mungkin seorang Nabi berkhianat (dalam urusan harta rampasan perang). Barang siapa berkhianat, niscaya pada hari Kiamat dia akan datang membawa apa yang dikhianatkannya."],
     [16, 4, "An-Nisa", 58, "4:58", "", "Sungguh, Allah menyuruhmu menyampaikan amanat kepada yang berhak menerimanya, dan apabila kamu menetapkan hukum di antara manusia hendaknya kamu menetapkannya dengan adil."],
+    // Ayat wudhu QS 5:6 (uji P9c): terjemahannya memakai "basuhlah",
+    // bukan "wudhu"/"berwudu" — tanpa pemetaan wudhu->basuh ayat
+    // ini tidak pernah ditemukan pertanyaan wudhu.
+    [17, 5, "Al-Ma'idah", 6, "5:6", "", "Wahai orang-orang yang beriman! Apabila kamu hendak melaksanakan salat, maka basuhlah wajahmu dan tanganmu sampai ke siku, dan sapulah kepalamu dan (basuh) kedua kakimu sampai ke kedua mata kaki."],
   ];
   for (const [id, surahNo, surahNama, ayatNo, key, arab, terjemahan] of ayatTambah) {
     db.query(
@@ -474,11 +478,12 @@ test("cariSumber dengan sudahDipakai: sumber yang dipakai tidak kembali", () => 
   expect(kedua.map((s) => s.rujukan)).not.toContain(rujukanPertama);
   expect(kedua.length).toBeGreaterThan(0);
   // Bila SEMUA ayat yang cocok dikecualikan, tidak ada ayat yang kembali
-  // (pool 12 menampung ketujuh ayat yang cocok: 6 zakat + 2:153).
+  // (pool 12 menampung kedelapan ayat yang cocok: 6 zakat + 2:153 + 5:6,
+  // yang terakhir masuk lewat kata "salat" di terjemahannya).
   const semuaRujukan = [
     "QS. At-Tawbah 9:60", "QS. Al-Baqarah 2:43", "QS. Al-Mu'minun 23:4",
     "QS. Fussilat 41:7", "QS. Luqman 31:4", "QS. An-Nur 24:56",
-    "QS. Al-Baqarah 2:153",
+    "QS. Al-Baqarah 2:153", "QS. Al-Ma'idah 5:6",
   ];
   const habis = tanya.cariSumber("salat dan zakat", { sudahDipakai: semuaRujukan });
   expect(habis.filter((s) => s.modul === "ayat")).toEqual([]);
@@ -536,6 +541,26 @@ test("perluasKataKunci: wudhu dan salat diperluas ke istilah Arab", () => {
   expect(salat).toContain("صلاة");
   const zakat = tanya.perluasKataKunci(["zakat"]);
   expect(zakat).toContain("زكاة");
+});
+
+test("cariSumber: 'apa hukum wudhu?' menemukan QS 5:6 (ayat wudhu)", () => {
+  // Regresi 2026-11-12 (P9c): tanpa pemetaan wudhu->basuh,
+  // pertanyaan wudhu hanya menemukan ayat-ayat "hukum" umum
+  // (5:50, 12:75, ...) dan AI menolak menjawab, padahal QS 5:6
+  // adalah ayat yang memerintahkan wudhu sebelum salat.
+  const hasil = tanya.cariSumber("apa hukum wudhu?");
+  const ayat = hasil.filter((s) => s.modul === "ayat");
+  expect(ayat.some((s) => s.rujukan.includes("5:6"))).toBe(true);
+});
+
+test("cariSumber: 'apa hukum wudhu?' menempatkan فرائض الوضوء di dua teratas fiqih", () => {
+  // Regresi 2026-11-12 (P9c): tanpa bonus judul, seri skor
+  // dimenangkan urutan sisipan (tayamum/masah) dan فرائض الوضوء —
+  // bagian yang justru merinci rukun wudhu — tidak masuk 2 besar.
+  const hasil = tanya.cariSumber("apa hukum wudhu?");
+  const fiqih = hasil.filter((s) => s.modul === "fiqh");
+  expect(fiqih.length).toBe(2);
+  expect(fiqih.some((s) => s.rujukan.includes("باب فرائض الوضوء"))).toBe(true);
 });
 
 test("cariSumber: pertanyaan wudhu menemukan sumber fiqih Kifayat al-Akhyar", () => {
