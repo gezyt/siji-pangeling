@@ -1,7 +1,7 @@
 // Tanya Jawab AI Siji Pangeling.
 //
-// Alur: pertanyaan -> kata kunci -> retrieval FTS5 di keempat modul
-// (ayat, hadits, siroh, artikel) -> prompt sistem + sumber terpilih ->
+// Alur: pertanyaan -> kata kunci -> retrieval FTS5 di kelima modul
+// (ayat, hadits, fiqih, siroh, artikel) -> prompt sistem + sumber terpilih ->
 // 9router (endpoint OpenAI-compatible) -> jawaban + daftar sumber.
 // AI hanya merangkai jawaban dari sumber yang diberikan; bila tidak ada
 // sumber yang relevan, endpoint menjawab "tidak ditemukan" TANPA memanggil
@@ -20,6 +20,7 @@ import { fileURLToPath } from "node:url";
 import {
   cariAyat,
   cariHadits,
+  cariFiqih,
   cariSiroh,
   cariArtikel,
   getTanyaCache,
@@ -27,7 +28,7 @@ import {
   listJawabanBaku,
 } from "./db";
 
-export type ModulSumber = "ayat" | "hadits" | "siroh" | "artikel";
+export type ModulSumber = "ayat" | "hadits" | "fiqh" | "siroh" | "artikel";
 
 export type Sumber = {
   modul: ModulSumber;
@@ -40,6 +41,8 @@ export type Sumber = {
   ayat?: number;
   kitab?: string;
   no?: string;
+  /** Urut bagian dalam kitab fiqih (tautan dalam #fiqih/{kitab}/{urut}). */
+  urut?: number;
   judul?: string;
 };
 
@@ -57,14 +60,14 @@ export const BATAS_PER_MENIT = 5;
 export const BATAS_PER_HARI = 20;
 
 export const TIDAK_DITEMUKAN =
-  "Tidak ditemukan jawaban di koleksi Siji Pangeling untuk pertanyaan ini. Coba kata kunci lain, atau buka langsung tab Al-Qur'an, Hadits, Siroh, dan Artikel.";
+  "Tidak ditemukan jawaban di koleksi Siji Pangeling untuk pertanyaan ini. Coba kata kunci lain, atau buka langsung tab Al-Qur'an, Hadits, Fiqih, Siroh, dan Artikel.";
 
 // Jawaban bila pertanyaan lanjutan kehabisan sumber baru: semua sumber
 // yang relevan sudah disampaikan di ronde sebelumnya. Diawali "Tidak
 // ditemukan" juga, supaya aturan jawabanMenolak() di server dan di
 // frontend mengenalinya sebagai penolakan (kartu sumber disembunyikan).
 export const TIDAK_DITEMUKAN_LAGI =
-  "Tidak ditemukan lagi sumber lain di koleksi Siji Pangeling untuk pertanyaan ini yang belum disampaikan. Coba topik lain, atau buka langsung tab Al-Qur'an, Hadits, Siroh, dan Artikel.";
+  "Tidak ditemukan lagi sumber lain di koleksi Siji Pangeling untuk pertanyaan ini yang belum disampaikan. Coba topik lain, atau buka langsung tab Al-Qur'an, Hadits, Fiqih, Siroh, dan Artikel.";
 
 /** Opsi pertanyaan lanjutan (Fase 4 sederhana, 2026-11-12).
  *  `sudahDipakai` = rujukan sumber yang sudah disampaikan di ronde
@@ -87,7 +90,7 @@ export function normalisasiRujukan(rujukan: string): string {
  * Isinya SAMA dengan file itu — ubah instruksinya di file, bukan di sini,
  * supaya yang dibaca Pak Gun dan yang dipakai server selalu satu sumber.
  */
-const PROMPT_DEFAULT = `Kamu adalah penjawab di situs Siji Pangeling. Jawablah HANYA berdasarkan sumber-sumber di bawah ini. Setiap pernyataan faktual harus disertai kutipan sumbernya dengan format persis seperti yang diberikan (mis. QS. Al-Baqarah 2:153, HR. Bukhari No. 1). Jangan menambah nomor ayat, nomor hadits, atau isi yang tidak ada di sumber. Bila pertanyaan adalah lanjutan, jawablah hanya dari sumber baru yang diberikan dan jangan mengulangi sumber yang sudah disampaikan sebelumnya. Bila sumber tidak cukup untuk menjawab, jawablah PERSIS dengan kalimat berikut, tanpa mengubah, menambah, atau memparafrasa satu kata pun: "Tidak ditemukan jawaban di koleksi Siji Pangeling untuk pertanyaan ini." Jangan mengeluarkan fatwa atau putusan hukum; untuk soal hukum, arahkan untuk bertanya ke ustadz atau ahli. Jawablah dalam Bahasa Indonesia, nada tenang dan sederhana, maksimal 250 kata.`;
+const PROMPT_DEFAULT = `Kamu adalah penjawab di situs Siji Pangeling. Jawablah HANYA berdasarkan sumber-sumber di bawah ini. Setiap pernyataan faktual harus disertai kutipan sumbernya dengan format persis seperti yang diberikan (mis. QS. Al-Baqarah 2:153, HR. Bukhari No. 1, Kifayat al-Akhyar — باب أقسام المياه). Jangan menambah nomor ayat, nomor hadits, atau isi yang tidak ada di sumber. Bila sumbernya fiqih, sebutkan kitab dan mazhabnya (mis. menurut Kifayat al-Akhyar, mazhab Syafi'i) dan ingatkan bahwa itu satu pendapat mazhab, bukan fatwa. Bila pertanyaan adalah lanjutan, jawablah hanya dari sumber baru yang diberikan dan jangan mengulangi sumber yang sudah disampaikan sebelumnya. Bila sumber tidak cukup untuk menjawab, jawablah PERSIS dengan kalimat berikut, tanpa mengubah, menambah, atau memparafrasa satu kata pun: "Tidak ditemukan jawaban di koleksi Siji Pangeling untuk pertanyaan ini." Jangan mengeluarkan fatwa atau putusan hukum; untuk soal hukum, arahkan untuk bertanya ke ustadz atau ahli. Jawablah dalam Bahasa Indonesia, nada tenang dan sederhana, maksimal 250 kata.`;
 
 /**
  * Muat system prompt dari prompts/sistem-tanya.md (dibaca saat server
@@ -216,12 +219,81 @@ const PETA_KONSEP: Record<string, string[]> = {
   suap: ["sogokan"],
 };
 
+// Peta konsep Arab — jembatan Indonesia → Arab untuk modul fiqih
+// (2026-11-12). Teks fiqih (Kifayat al-Akhyar) berbahasa Arab, jadi
+// kata kunci Indonesia tidak pernah cocok harfiah: "wudhu" tidak
+// ada di teks Arab mana pun — yang ada "الطهارة" dan "الوضوء".
+// Kunci ditulis seperti kataKunci (sudah di-stem: "menikah" jadi
+// "ikah", "mencuri" jadi "curi"); nilai adalah istilah Arab yang
+// dicari di modul fiqih (dan, sebagai bonus, di matan Arab hadits).
+// SETIAP istilah Arab di bawah ini terverifikasi ada di teks
+// Kifayat (dihitung 2026-11-12 di DB produksi: طهارة 22, وضوء 21,
+// صلاة 121, زكاة 27, حج 89, طلاق 52, مال 122 — yang paling sedikit
+// جنائز dan عقيقة, masing-masing 3). Bila kitab fiqih baru ditambah,
+// periksa dulu istilahnya ada di kitab itu sebelum memakai peta ini.
+const PETA_KONSEP_ARAB: Record<string, string[]> = {
+  wudhu: ["طهارة", "وضوء"],
+  wudu: ["طهارة", "وضوء"],
+  suci: ["طهارة"],
+  salat: ["صلاة"],
+  shalat: ["صلاة"],
+  sholat: ["صلاة"],
+  solat: ["صلاة"],
+  zakat: ["زكاة"],
+  fitrah: ["فطر"],
+  puasa: ["صوم", "صيام"],
+  haji: ["حج"],
+  umrah: ["عمرة"],
+  umroh: ["عمرة"],
+  ikah: ["نكاح"],
+  nikah: ["نكاح"],
+  talak: ["طلاق"],
+  cerai: ["طلاق"],
+  waris: ["فرائض", "وارث"],
+  tayamum: ["تيمم"],
+  najis: ["نجاسة"],
+  haid: ["حيض"],
+  nifas: ["نفاس"],
+  mandi: ["غسل"],
+  junub: ["جنب"],
+  kurban: ["أضحية"],
+  qurban: ["أضحية"],
+  mahar: ["صداق"],
+  murtad: ["ردة"],
+  jumat: ["جمعة"],
+  jamaah: ["جماعة"],
+  riba: ["ربا"],
+  curi: ["سرقة"],
+  zina: ["زنا"],
+  air: ["مياه", "ماء"],
+  ihram: ["إحرام"],
+  jenazah: ["جنائز"],
+  mayit: ["ميت"],
+  jual: ["بيع"],
+  beli: ["بيع"],
+  fiqih: ["فقه"],
+  qasar: ["قصر"],
+  qashar: ["قصر"],
+  jamak: ["جمع"],
+  sujud: ["سجود"],
+  sahwi: ["سهو"],
+  aqiqah: ["عقيقة"],
+  sembelih: ["ذبائح"],
+  harta: ["مال"],
+};
+
 export function perluasKataKunci(kunci: string[]): string[] {
   const hasil = [...kunci];
   for (const k of kunci) {
     for (const tambah of PETA_KONSEP[k] ?? []) {
       const stem = stemKata(tambah);
       if (!hasil.includes(stem)) hasil.push(stem);
+    }
+    // Istilah Arab tidak di-stem (stemKata hanya mengenal imbuhan
+    // Latin; "طهارة" tidak berubah) dan langsung ditambahkan apa
+    // adanya — FTS awalan + LIKE di cariModul yang mencocokkannya.
+    for (const tambah of PETA_KONSEP_ARAB[k] ?? []) {
+      if (!hasil.includes(tambah)) hasil.push(tambah);
     }
   }
   return hasil;
@@ -300,10 +372,18 @@ export function kataKunciEfektif(pertanyaan: string, konteks?: string): string[]
 }
 
 /**
- * Retrieval (FTS5 + LIKE): 5 ayat + 3 hadits + 2 siroh + 2 artikel
- * teratas. Kata kunci di-stem (lihat stemKata) lalu diperluas lewat
- * peta konsep (lihat PETA_KONSEP), supaya istilah seperti "mustahik"
- * dan "dicintai" menemukan sumbernya.
+ * Retrieval (FTS5 + LIKE): 5 ayat + 3 hadits + 2 fiqih + 2 siroh +
+ * 2 artikel teratas. Kata kunci di-stem (lihat stemKata) lalu
+ * diperluas lewat peta konsep (lihat PETA_KONSEP) dan peta konsep
+ * Arab (lihat PETA_KONSEP_ARAB) — tanpa yang kedua, pertanyaan
+ * Indonesia tentang wudhu/salat/zakat tidak pernah menemukan teks
+ * Arab Kifayat.
+ *
+ * Rujukan fiqih memuat bab + pasal ("Kifayat al-Akhyar — باب ... · ...").
+ * Pasangan (bab, pasal) unik di seluruh 157 bagian (terverifikasi),
+ * jadi rujukan ini sekaligus kunci pengecualian ronde lanjutan yang
+ * tepat: mengecualikan satu bagian tidak menyembunyikan pasal lain
+ * dari bab yang sama.
  *
  * Lanjutan (`opsi.sudahDipakai`): sumber yang rujukannya sudah
  * disampaikan dikecualikan. Pool yang diambil sengaja diperbesar
@@ -345,6 +425,15 @@ export function cariSumber(pertanyaan: string, opsi: OpsiLanjutan = {}): Sumber[
       teks: potong(h.matan_id),
       kitab: h.kitab,
       no: h.no_hadits,
+    }))
+  );
+  sumber.push(
+    ...ambil(cariFiqih, 2, (f: any) => ({
+      modul: "fiqh" as const,
+      rujukan: `Kifayat al-Akhyar — ${f.bab}${f.pasal ? " · " + f.pasal : ""}`,
+      teks: potong(f.teks),
+      kitab: f.kitab,
+      urut: f.urut,
     }))
   );
   sumber.push(

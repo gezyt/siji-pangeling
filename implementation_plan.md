@@ -805,6 +805,66 @@ dibuat kayak Al-Qur'an dan Hadits ya"):
 - **Deploy di VPS:** `./scripts/deploy.sh`, lalu
   `bun run import:fiqih` sekali (tanpa restart).
 
+### 6o. Tanya Jawab memakai fiqih (2026-11-12, setelah P8 live)
+
+- **Keputusan:** Tanya Jawab kini mengambil sumber dari kelima modul
+  (5 ayat + 3 hadits + **2 fiqih** + 2 siroh + 2 artikel). Perintah
+  Pak Gun: "iya lanjutkan" (12 Nov 2026 12.03 WIB).
+- **Jembatan bahasa (`PETA_KONSEP_ARAB` di `src/tanya.ts`):** teks
+  fiqih berbahasa Arab, jadi kata kunci Indonesia tidak pernah cocok
+  harfiah. Peta ini memetakan kata Indonesia yang sudah di-stem ke
+  istilah Arab: wudhu/wudu → طهارة/وضوء, salat/shalat/sholat/solat →
+  صلاة, zakat → زكاة, puasa → صوم/صيام, haji → حج, nikah/menikah
+  (stem "ikah") → نكاح, talak/cerai → طلاق, dst. — ~48 kunci.
+  SETIAP istilah Arab terverifikasi ada di teks Kifayat (dihitung
+  2026-11-12 di DB produksi; paling sedikit جنائز dan عقيقة,
+  masing-masing 3 cocok). Istilah Arab ikut dicari juga di matan
+  Arab hadits (bonus: hadits tentang salat kini lebih mudah
+  ditemukan); tidak memengaruhi ayat (teks Arab ayat bertasykil,
+  jadi LIKE/FTS Arab tidak cocok) maupun siroh/artikel.
+- **Rujukan fiqih:** `Kifayat al-Akhyar — {bab}` + ` · {pasal}` bila
+  ada; pasangan (bab, pasal) unik di seluruh 157 bagian
+  (terverifikasi, 0 duplikat), jadi rujukan ini sekaligus kunci
+  pengecualian ronde lanjutan yang tepat. `Sumber` mendapat kolom
+  `urut` untuk tautan dalam.
+- **Prompt sistem** (`prompts/sistem-tanya.md` + `PROMPT_DEFAULT`,
+  isinya sama): contoh kutipan ditambah format fiqih; kalimat baru:
+  "Bila sumbernya fiqih, sebutkan kitab dan mazhabnya (mis. menurut
+  Kifayat al-Akhyar, mazhab Syafi'i) dan ingatkan bahwa itu satu
+  pendapat mazhab, bukan fatwa." — **redaksi ini untuk diaudit
+  Pak Gun** (prompt adalah kata-katanya).
+- **Frontend:** catatan tab Tanya Jawab menyebut fiqih; klik kartu
+  sumber fiqih membuka bagian itu persis di tab Fiqih (kitab +
+  urut, cerminan cabang hadits) — pemilih bab diisi dulu.
+  Tentang (metodologi Tanya Jawab) menyebut fiqih.
+- **Cache lama:** jawaban lama (cache 7 hari) tidak mengandung
+  fiqih. `hapusSemuaTanyaCache()` baru di `src/db.ts` +
+  `bun run hapus-cache-tanya -- --semua` — jalankan sekali saat
+  deploy, supaya pertanyaan fiqih yang dulu "tidak ditemukan" ikut
+  dicari ulang. Biaya: pertanyaan lama dijawab ulang (1 panggilan
+  AI per pertanyaan).
+- **Uji:** 5 uji baru `tests/tanya.test.ts` (perluasan Arab, wudhu →
+  sumber fiqih, salat → bagian salat, ronde 2 fiqih baru,
+  hapus-semua-cache); tanya 41/41 per berkas; cari-semua 4/4,
+  kata 7/7, tafsir 5/5, fiqih 6/6; `bun check` tetap 12 galat lama;
+  gabungan `bun test` tetap gagal 2 yang sama (lama, seed di
+  registry bersama). E2E server lokal (PORT 3107) + stub 9router +
+  salinan DB berfiqh 157: "apa hukum wudhu?" → 2 sumber fiqih
+  (باب التيمم, باب المسح على الخفين) sampai ke AI; ronde 2 → 2
+  sumber fiqih BARU tanpa irisan (باب أقسام المياه,
+  باب السواك · فرائض الوضوء); "kapan waktu salat?" → 2 sumber
+  fiqih tentang salat.
+- **Catatan peringkat:** ronde 1 wudhu mengembalikan bagian
+  seputar wudhu (tayamum, masah khuf) sebelum فرائض الوضوء —
+  itu perilaku peringkat cariGabung yang sama seperti ayat
+  (jumlah kata cocok dulu, baru kelangkaan); bagian yang paling
+  tepat muncul di ronde 2 lewat "apa lagi?". Bukan bug; bila
+  Pak Gun ingin peringkat judul-bab didahulukan, itu pekerjaan
+  terpisah yang memengaruhi semua modul.
+- **Deploy di VPS:** `./scripts/deploy.sh` (me-restart; prompt
+  sistem dibaca saat start), lalu
+  `bun run hapus-cache-tanya -- --semua` sekali.
+
 ## 7. Perintah deploy (setelah build — jalankan di VPS)
 
 ```bash
@@ -830,6 +890,10 @@ bun run seed:jawaban-baku
 # 5. Hapus cache tanya (setelah perbaikan jawaban baku/retrieval, supaya
 #    pertanyaan yang dulu ditolak dicari ulang; tanpa restart):
 bun run hapus-cache-tanya
+#    Setelah perubahan retrieval yang memengaruhi SEMUA pertanyaan
+#    (mis. modul sumber baru di Tanya Jawab, 2026-11-12): hapus seluruh
+#    cache sekali, supaya jawaban lama ikut memakai sumber baru:
+bun run hapus-cache-tanya -- --semua
 
 # 6. Uji live:
 curl -X POST http://127.0.0.1:3001/api/tanya \

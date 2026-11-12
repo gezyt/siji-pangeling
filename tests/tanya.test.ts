@@ -120,6 +120,23 @@ beforeAll(() => {
   db.query(
     "INSERT INTO artikel (judul, isi, dalil, kategori) VALUES (?, ?, ?, ?)"
   ).run("Sabar dalam Islam", "Sabar adalah menahan diri dalam ketaatan.", "QS. Al-Baqarah 2:153", "Akhlak");
+  // Baris fiqih untuk uji Tanya Jawab + fiqih (2026-11-12): teks Arab
+  // asli gaya Kifayat — tiga baris wudhu (urut 1 cocok طهارة+وضوء,
+  // urut 2 cocok وضوء saja, urut 3 cocok طهارة saja) supaya uji
+  // lanjutan bisa membuktikan ronde 2 menemukan bagian baru, plus
+  // satu baris salat. "hukum" sengaja tidak ada di teks Arab mana pun.
+  db.query(
+    "INSERT INTO fiqh (kitab, mazhab, bab, pasal, teks, urut, sumber) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run("Kifayat al-Akhyar", "Syafi'i", "كتاب الطهارة", "باب أقسام المياه", "المياه التي يجوز التطهير بها سبع مياه ماء السماء وماء البحر والوضوء من الطهارة", 1, "Fiqh Corpus");
+  db.query(
+    "INSERT INTO fiqh (kitab, mazhab, bab, pasal, teks, urut, sumber) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run("Kifayat al-Akhyar", "Syafi'i", "كتاب الطهارة", "باب فرائض الوضوء", "فرائض الوضوء ستة النية وغسل الوجه وغسل اليدين ومسح الرأس وغسل الرجلين والترتيب", 2, "Fiqh Corpus");
+  db.query(
+    "INSERT INTO fiqh (kitab, mazhab, bab, pasal, teks, urut, sumber) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run("Kifayat al-Akhyar", "Syafi'i", "كتاب الطهارة", "باب ما يحرم على الجنب والمحدث", "الطهارة شرط لصحة الصلاة فلا تصح الصلاة بغير طهارة", 3, "Fiqh Corpus");
+  db.query(
+    "INSERT INTO fiqh (kitab, mazhab, bab, pasal, teks, urut, sumber) VALUES (?, ?, ?, ?, ?, ?, ?)"
+  ).run("Kifayat al-Akhyar", "Syafi'i", "كتاب الصلاة", "باب مواقيت الصلاة", "مواقيت الصلاة خمس الصبح والظهر والعصر والمغرب والعشاء", 4, "Fiqh Corpus");
 });
 
 afterAll(() => {
@@ -489,4 +506,57 @@ test("jawabPertanyaan lanjutan melewati jawaban baku (tidak mengulang ronde pert
   expect(kedua.dariBaku).not.toBe(true);
   expect(kedua.jawaban).toBe(tanya.TIDAK_DITEMUKAN_LAGI);
   expect(stubHits).toBe(sebelum);
+});
+
+test("perluasKataKunci: wudhu dan salat diperluas ke istilah Arab", () => {
+  const wudhu = tanya.perluasKataKunci(["wudhu"]);
+  expect(wudhu).toContain("طهارة");
+  expect(wudhu).toContain("وضوء");
+  const salat = tanya.perluasKataKunci(["salat"]);
+  expect(salat).toContain("صلاة");
+  const zakat = tanya.perluasKataKunci(["zakat"]);
+  expect(zakat).toContain("زكاة");
+});
+
+test("cariSumber: pertanyaan wudhu menemukan sumber fiqih Kifayat al-Akhyar", () => {
+  const hasil = tanya.cariSumber("apa hukum wudhu?");
+  const fiqih = hasil.filter((s) => s.modul === "fiqh");
+  expect(fiqih.length).toBeGreaterThan(0);
+  // Rujukan memuat kitab + bab Arab, dan urut untuk tautan dalam.
+  expect(fiqih[0]!.rujukan).toMatch(/^Kifayat al-Akhyar — كتاب الطهارة/);
+  expect(fiqih[0]!.kitab).toBe("Kifayat al-Akhyar");
+  expect(typeof fiqih[0]!.urut).toBe("number");
+  expect(fiqih[0]!.teks).toMatch(/طهارة|وضوء/);
+});
+
+test("cariSumber: pertanyaan salat menemukan bagian fiqih tentang salat", () => {
+  const hasil = tanya.cariSumber("kapan waktu salat?");
+  const fiqih = hasil.filter((s) => s.modul === "fiqh");
+  expect(fiqih.length).toBeGreaterThan(0);
+  expect(fiqih.some((s) => s.rujukan.includes("كتاب الصلاة"))).toBe(true);
+});
+
+test("cariSumber lanjutan: ronde 2 menemukan bagian fiqih baru, bukan ulangan ronde 1", () => {
+  const ronde1 = tanya.cariSumber("apa hukum wudhu?");
+  const fiqih1 = ronde1.filter((s) => s.modul === "fiqh");
+  expect(fiqih1.length).toBe(2);
+  const dipakai = ronde1.map((s) => s.rujukan);
+  const ronde2 = tanya.cariSumber("apa lagi?", {
+    konteks: "apa hukum wudhu?",
+    sudahDipakai: dipakai,
+  });
+  const fiqih2 = ronde2.filter((s) => s.modul === "fiqh");
+  // Baris wudhu ketiga (urut 3, cocok طهارة saja) masih tersisa.
+  expect(fiqih2.length).toBe(1);
+  expect(fiqih2[0]!.rujukan).toContain("باب ما يحرم على الجنب والمحدث");
+  for (const s of fiqih2) expect(dipakai).not.toContain(s.rujukan);
+});
+
+test("hapusSemuaTanyaCache: menghapus seluruh entri cache", () => {
+  const hash = tanya.hashPertanyaan("pertanyaan cache uji hapus semua");
+  dbMod.setTanyaCache(hash, "pertanyaan cache uji hapus semua", JSON.stringify({ jawaban: "x", sumber: [] }));
+  expect(dbMod.getTanyaCache(hash)).not.toBeNull();
+  const n = dbMod.hapusSemuaTanyaCache();
+  expect(n).toBeGreaterThanOrEqual(1);
+  expect(dbMod.getTanyaCache(hash)).toBeNull();
 });

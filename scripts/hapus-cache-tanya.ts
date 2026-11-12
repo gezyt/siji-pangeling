@@ -13,11 +13,20 @@
 // Pakai: bun run hapus-cache-tanya
 //   (atau: bun run hapus-cache-tanya "pertanyaan lain" — ditambahkan
 //    ke daftar di bawah)
+//   (atau: bun run hapus-cache-tanya -- --semua — hapus SELURUH cache;
+//    dipakai sekali setelah perubahan retrieval yang memengaruhi semua
+//    pertanyaan, mis. modul sumber baru di Tanya Jawab)
 // Di VPS: cd /opt/pangeling/siji && bun run hapus-cache-tanya
 // Tidak perlu restart service — cache dibaca dari database setiap ada
 // pertanyaan masuk.
-import { hapusTanyaCache } from "../src/db";
+import { hapusTanyaCache, hapusSemuaTanyaCache } from "../src/db";
 import { hashPertanyaan } from "../src/tanya";
+
+if (process.argv.includes("--semua")) {
+  const n = hapusSemuaTanyaCache();
+  console.log(`hapus cache tanya: seluruh cache dihapus (${n} entri)`);
+  process.exit(0);
+}
 
 const DAFTAR = [
   "Hadits tentang niat",

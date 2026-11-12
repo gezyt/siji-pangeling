@@ -213,7 +213,7 @@
       <input id="tanyaQ" type="search" placeholder="Tanyakan sesuatu… (mis. apa yang Al-Qur'an katakan tentang sabar?)" autocomplete="off" aria-label="Pertanyaan untuk tanya jawab">
       <button type="submit" id="tanyaTombol">Tanya</button>
     </form>
-    <p class="catatan">Jawaban disusun dari ayat, hadits, siroh, dan artikel di Siji Pangeling, lengkap dengan sumbernya. Ini bukan fatwa — untuk soal hukum, tanyakan langsung ke ustadz atau ahli yang tepercaya.</p>
+    <p class="catatan">Jawaban disusun dari ayat, hadits, fiqih, siroh, dan artikel di Siji Pangeling, lengkap dengan sumbernya. Ini bukan fatwa — untuk soal hukum, tanyakan langsung ke ustadz atau ahli yang tepercaya.</p>
     <div class="contoh" id="tanyaContoh">
       <button type="button" data-tanya="Apa yang Al-Qur'an katakan tentang sabar?">Apa yang Al-Qur'an katakan tentang sabar?</button>
       <button type="button" data-tanya="Ayat kursi surah apa ayat berapa?">Ayat kursi surah apa ayat berapa?</button>
@@ -1345,6 +1345,18 @@ $("tanyaSumber").addEventListener("click", (e) => {
       state.q = s.kitab;
       $("q").value = state.q;
     }
+    muat(true);
+    tulisHash();
+  } else if (s.modul === "fiqh" && s.kitab && s.urut) {
+    // Buka bagian fiqih itu persis (kitab + urut) — cerminan cabang
+    // hadits di atas. Pemilih bab diisi dulu supaya dropdownnya
+    // lengkap saat pengguna sudah di tab Fiqih.
+    pilihModul("fiqh");
+    state.kitabFiqih = s.kitab; $("kitabFiqih").value = s.kitab;
+    muatBabFiqih(s.kitab);
+    state.fiqihUrut = String(s.urut);
+    state.babFiqih = ""; $("babFiqih").value = "";
+    state.q = ""; $("q").value = "";
     muat(true);
     tulisHash();
   } else {

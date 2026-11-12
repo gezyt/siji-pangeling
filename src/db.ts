@@ -747,6 +747,16 @@ export function hapusTanyaCache(hash: string): boolean {
   return info.changes > 0;
 }
 
+// Hapus SELURUH cache Tanya Jawab — dipakai sekali setelah perubahan
+// retrieval yang memengaruhi semua pertanyaan (mis. modul sumber baru),
+// supaya jawaban lama tidak terus mengembalikan jawaban tanpa sumber
+// baru sampai kedaluwarsa 7 harinya. Biaya: pertanyaan yang pernah
+// ditanya akan dijawab ulang (satu panggilan AI per pertanyaan).
+export function hapusSemuaTanyaCache(): number {
+  const info = db.query("DELETE FROM tanya_cache").run();
+  return info.changes;
+}
+
 // ---------------------------------------------------------------------------
 // Jawaban baku (memory kurasi).
 // Jawaban yang ditulis/dis setujui Pak Gun untuk pertanyaan yang sering
