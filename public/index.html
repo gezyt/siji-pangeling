@@ -209,6 +209,7 @@
       <button type="button" data-tanya="Hadits tentang niat">Hadits tentang niat</button>
     </div>
     <div class="contoh" id="riwayatTanya" hidden></div>
+    <div class="contoh" id="tanyaLanjut" hidden></div>
     <div id="tanyaJawaban" aria-live="polite"></div>
     <div id="tanyaSumber"></div>
   </section>
@@ -985,6 +986,48 @@ let tanyaSumber = [];
 // Jawaban terakhir (untuk tombol Salin di bawah jawaban).
 let tanyaTerakhir = { q: "", jawaban: "" };
 
+// --- Percakapan lanjutan (Fase 4 sederhana): rantai pertanyaan di
+// tab Tanya Jawab. Disimpan di sessionStorage (perangkat ini saja,
+// hilang saat tab ditutup): pertanyaan asal rantai + rujukan sumber
+// yang sudah disampaikan. Pertanyaan baru (bukan lanjutan) memulai
+// rantai baru; pertanyaan lanjutan ("apa lagi?", "selain yang sudah
+// disampaikan, apa lagi?") mengirim konteks + sudahDipakai ke server
+// supaya ronde berikutnya memakai sumber BARU, bukan mengulang.
+let tanyaTopik = "";
+let tanyaSudahDipakai = [];
+const KUNCI_PERCAKAPAN_TANYA = "siji-pangeling:percakapan-tanya";
+function apakahLanjutan(q) {
+  return /selain|apa lagi|ada lagi|lainnya|lanjut|tambah|berikutnya|sudah (anda )?sampaikan|sudah disebut/i.test(q);
+}
+function muatPercakapanTanya() {
+  try {
+    const d = JSON.parse(sessionStorage.getItem(KUNCI_PERCAKAPAN_TANYA) || "null");
+    if (d && typeof d.topik === "string" && Array.isArray(d.sudahDipakai)) {
+      tanyaTopik = d.topik;
+      tanyaSudahDipakai = d.sudahDipakai.filter((x) => typeof x === "string");
+    }
+  } catch {}
+}
+function simpanPercakapanTanya() {
+  try { sessionStorage.setItem(KUNCI_PERCAKAPAN_TANYA, JSON.stringify({ topik: tanyaTopik, sudahDipakai: tanyaSudahDipakai })); } catch {}
+}
+function renderTanyaLanjut() {
+  const wadah = $("tanyaLanjut");
+  if (!tanyaTopik || !tanyaSudahDipakai.length) { wadah.hidden = true; wadah.innerHTML = ""; return; }
+  wadah.hidden = false;
+  wadah.innerHTML = `<span class="riwayat-label">Lanjutan dari “${esc(tanyaTopik)}” · ${tanyaSudahDipakai.length} sumber sudah disampaikan:</span>` +
+    `<button type="button" data-lanjut="1">Selain yang sudah disampaikan, apa lagi?</button>` +
+    `<button type="button" data-baru="1">Mulai topik baru</button>`;
+}
+function resetPercakapanTanya() {
+  tanyaTopik = "";
+  tanyaSudahDipakai = [];
+  try { sessionStorage.removeItem(KUNCI_PERCAKAPAN_TANYA); } catch {}
+  renderTanyaLanjut();
+}
+muatPercakapanTanya();
+renderTanyaLanjut();
+
 // Tautan bagikan WhatsApp: pertanyaan + jawaban (dipotong bila
 // panjang, supaya tautannya tidak melewati batas praktis URL) +
 // tautan balik ke tab Tanya dengan pertanyaan yang sama.
@@ -998,6 +1041,15 @@ $("formTanya").addEventListener("submit", async (e) => {
   e.preventDefault();
   const q = $("tanyaQ").value.trim();
   if (!q) return;
+  // Lanjutan hanya bila ada rantai aktif DAN pertanyaannya berbunyi
+  // lanjutan; pertanyaan baru memulai rantai baru (resetnya baru
+  // dilakukan setelah jawaban berhasil, supaya galat jaringan tidak
+  // menghapus rantai yang masih berjalan).
+  const lanjutan = Boolean(tanyaTopik && tanyaSudahDipakai.length > 0 && apakahLanjutan(q));
+  const mulaiBaru = !lanjutan;
+  const body = lanjutan
+    ? { pertanyaan: q, konteks: tanyaTopik, sudahDipakai: tanyaSudahDipakai }
+    : { pertanyaan: q };
   // Pertanyaan masuk ke alamat supaya bisa dibagikan/di-bookmark.
   tulisHash();
   const tombol = $("tanyaTombol");
@@ -1011,7 +1063,7 @@ $("formTanya").addEventListener("submit", async (e) => {
     const r = await fetch("/api/tanya", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ pertanyaan: q }),
+      body: JSON.stringify(body),
     });
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
@@ -1040,6 +1092,23 @@ $("formTanya").addEventListener("submit", async (e) => {
     $("tanyaSumber").innerHTML = tanyaSumber.map((s, i) =>
       `<button class="card sumber" type="button" data-i="${i}"><strong>${esc(s.rujukan)}</strong><span>${esc((s.teks || "").slice(0, 160))}…</span></button>`
     ).join("");
+    // Rantai lanjutan: catat sumber jawaban ini supaya ronde
+    // berikutnya tidak mengulanginya. Jawaban "tidak ditemukan"
+    // pada ronde lanjutan berarti rantainya sudah habis — rantai
+    // dihapus supaya tombol lanjutan tidak muncul lagi.
+    if (tidakDitemukan) {
+      if (lanjutan) resetPercakapanTanya();
+    } else {
+      if (mulaiBaru) { tanyaTopik = q; tanyaSudahDipakai = []; }
+      for (const s of (j.sumber || [])) {
+        if (s.rujukan && !tanyaSudahDipakai.includes(s.rujukan)) tanyaSudahDipakai.push(s.rujukan);
+      }
+      // Jawaban baku tanpa sumber tetap menandai rantai sudah dipakai,
+      // supaya ronde berikutnya tidak mengulang jawaban baku itu.
+      if (j.dariBaku && !(j.sumber || []).length && !tanyaSudahDipakai.includes("jawaban-baku")) tanyaSudahDipakai.push("jawaban-baku");
+      simpanPercakapanTanya();
+    }
+    renderTanyaLanjut();
     // Riwayat pertanyaan Tanya Jawab (localStorage, perangkat ini saja).
     simpanRiwayat(KUNCI_RIWAYAT_TANYA, q);
     renderRiwayat(KUNCI_RIWAYAT_TANYA, "riwayatTanya", "Pertanyaan terakhir:");
@@ -1048,6 +1117,17 @@ $("formTanya").addEventListener("submit", async (e) => {
   } finally {
     tombol.disabled = false;
   }
+});
+$("tanyaLanjut").addEventListener("click", (e) => {
+  if (e.target.closest("[data-baru]")) {
+    resetPercakapanTanya();
+    $("tanyaQ").value = "";
+    $("tanyaQ").focus();
+    return;
+  }
+  if (!e.target.closest("[data-lanjut]")) return;
+  $("tanyaQ").value = "Selain yang sudah disampaikan, apa lagi?";
+  $("formTanya").requestSubmit();
 });
 $("tanyaContoh").addEventListener("click", (e) => {
   const chip = e.target.closest("[data-tanya]");

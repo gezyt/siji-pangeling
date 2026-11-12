@@ -76,10 +76,18 @@ Bun.serve({
       if (pertanyaan.length > MAKS_PANJANG_PERTANYAAN) {
         return json({ error: `Pertanyaan maks ${MAKS_PANJANG_PERTANYAAN} karakter.` }, 400);
       }
+      // Lanjutan (Fase 4 sederhana): frontend boleh mengirim konteks
+      // (pertanyaan asal rantai) dan sudahDipakai (rujukan sumber yang
+      // sudah disampaikan). Keduanya dibatasi dan dibersihkan — hanya
+      // string pendek yang diteruskan ke jawabPertanyaan.
+      const konteks = String(b?.konteks ?? "").trim().slice(0, MAKS_PANJANG_PERTANYAAN);
+      const sudahDipakai = Array.isArray(b?.sudahDipakai)
+        ? b.sudahDipakai.filter((x: unknown) => typeof x === "string").map((x: string) => x.trim()).filter(Boolean).slice(0, 50).map((x: string) => x.slice(0, 200))
+        : [];
       const batas = bolehTanya(ipKlien(req, server));
       if (!batas.boleh) return json({ error: batas.alasan }, 429);
       try {
-        return json(await jawabPertanyaan(pertanyaan));
+        return json(await jawabPertanyaan(pertanyaan, { konteks, sudahDipakai }));
       } catch (e: any) {
         const pesan = String(e?.message ?? "");
         if (pesan.includes("SIJI_9ROUTER_KEY")) {

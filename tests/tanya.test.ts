@@ -398,3 +398,95 @@ test("ipKlien: CF-Connecting-IP diutamakan, lalu XFF, lalu koneksi", () => {
   const kosong = new Request("http://x/");
   expect(tanya.ipKlien(kosong)).toBe("tak-dikenal");
 });
+
+// --- Pertanyaan lanjutan (Fase 4 sederhana, 2026-11-12) ---
+
+test("kataKunci membuang kata lanjutan (selain, lagi, sampaikan)", () => {
+  // "perintah" ter-stem jadi "intah" (awalan "per") seperti biasa;
+  // yang penting kata lanjutan tidak jadi kata kunci.
+  expect(tanya.kataKunci("Selain yang sudah Anda sampaikan, apa lagi perintah Allah?")).toEqual(["intah", "allah"]);
+  expect(tanya.kataKunci("apa lagi?")).toEqual([]);
+  expect(tanya.kataKunci("lanjut, apa lagi?")).toEqual([]);
+});
+
+test("kataKunciEfektif: lanjutan tanpa kata isi memakai kata kunci konteks", () => {
+  const k = tanya.kataKunciEfektif("apa lagi?", "apa perintah tentang salat dan zakat?");
+  expect(k).toContain("salat");
+  expect(k).toContain("zakat");
+  expect(tanya.kataKunciEfektif("apa lagi?")).toEqual([]);
+  // Kata isi baru di lanjutan ikut dipakai bersama konteks.
+  expect(tanya.kataKunciEfektif("apa lagi tentang zakat?", "apa perintah tentang salat?")).toContain("zakat");
+});
+
+test("hashPertanyaan: lanjutan memakai kunci cache yang berbeda", () => {
+  const q = "apa itu sabar?";
+  expect(tanya.hashPertanyaan(q)).toBe(tanya.hashPertanyaan(q));
+  expect(tanya.hashPertanyaan(q)).not.toBe(
+    tanya.hashPertanyaan(q, { sudahDipakai: ["QS. Al-Baqarah 2:153"] })
+  );
+  expect(
+    tanya.hashPertanyaan(q, { sudahDipakai: ["QS. Al-Baqarah 2:153"] })
+  ).toBe(tanya.hashPertanyaan(q, { sudahDipakai: ["QS. Al-Baqarah 2:153"] }));
+});
+
+test("cariSumber dengan sudahDipakai: sumber yang dipakai tidak kembali", () => {
+  const pertama = tanya.cariSumber("salat dan zakat");
+  expect(pertama.filter((s) => s.modul === "ayat").length).toBe(5);
+  const rujukanPertama = pertama[0]!.rujukan;
+  const kedua = tanya.cariSumber("salat dan zakat", { sudahDipakai: [rujukanPertama] });
+  expect(kedua.map((s) => s.rujukan)).not.toContain(rujukanPertama);
+  expect(kedua.length).toBeGreaterThan(0);
+  // Bila SEMUA ayat yang cocok dikecualikan, tidak ada ayat yang kembali
+  // (pool 12 menampung ketujuh ayat yang cocok: 6 zakat + 2:153).
+  const semuaRujukan = [
+    "QS. At-Tawbah 9:60", "QS. Al-Baqarah 2:43", "QS. Al-Mu'minun 23:4",
+    "QS. Fussilat 41:7", "QS. Luqman 31:4", "QS. An-Nur 24:56",
+    "QS. Al-Baqarah 2:153",
+  ];
+  const habis = tanya.cariSumber("salat dan zakat", { sudahDipakai: semuaRujukan });
+  expect(habis.filter((s) => s.modul === "ayat")).toEqual([]);
+});
+
+test("jawabPertanyaan lanjutan: sumber baru, bukan ulangan ronde pertama", async () => {
+  const sebelum = stubHits;
+  const ronde1 = await tanya.jawabPertanyaan("apa perintah tentang salat dan zakat?");
+  expect(ronde1.dariCache).toBe(false);
+  expect(ronde1.sumber.length).toBeGreaterThan(0);
+  expect(stubHits).toBe(sebelum + 1);
+  const dipakai = ronde1.sumber.map((s) => s.rujukan);
+  const ronde2 = await tanya.jawabPertanyaan("Selain yang sudah disampaikan, apa lagi?", {
+    konteks: "apa perintah tentang salat dan zakat?",
+    sudahDipakai: dipakai,
+  });
+  // Cache ronde 1 tidak dipakai (kunci berbeda): stub dipanggil lagi.
+  expect(ronde2.dariCache).toBe(false);
+  expect(stubHits).toBe(sebelum + 2);
+  expect(ronde2.sumber.length).toBeGreaterThan(0);
+  for (const s of ronde2.sumber) expect(dipakai).not.toContain(s.rujukan);
+});
+
+test("jawabPertanyaan lanjutan yang kehabisan sumber: pesan 'tidak ditemukan lagi', AI tidak dipanggil", async () => {
+  const sebelum = stubHits;
+  const hasil = await tanya.jawabPertanyaan("zxqwvkj", {
+    konteks: "zxqwvkj",
+    sudahDipakai: ["QS. Al-Baqarah 2:153"],
+  });
+  expect(hasil.jawaban).toBe(tanya.TIDAK_DITEMUKAN_LAGI);
+  expect(hasil.sumber).toEqual([]);
+  expect(stubHits).toBe(sebelum);
+});
+
+test("jawabPertanyaan lanjutan melewati jawaban baku (tidak mengulang ronde pertama)", async () => {
+  dbMod.upsertJawabanBaku("Apa itu tawakal?", "tawakal", "Jawaban baku tawakal.", "[]");
+  const pertama = await tanya.jawabPertanyaan("apa itu tawakal?");
+  expect(pertama.dariBaku).toBe(true);
+  expect(pertama.jawaban).toBe("Jawaban baku tawakal.");
+  const sebelum = stubHits;
+  const kedua = await tanya.jawabPertanyaan("apa lagi?", {
+    konteks: "apa itu tawakal?",
+    sudahDipakai: ["jawaban-baku"],
+  });
+  expect(kedua.dariBaku).not.toBe(true);
+  expect(kedua.jawaban).toBe(tanya.TIDAK_DITEMUKAN_LAGI);
+  expect(stubHits).toBe(sebelum);
+});
